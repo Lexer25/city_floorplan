@@ -4,20 +4,36 @@ class Controller_Floorplan extends Controller_Template
 {
     public $template = 'template';
     
-    public function before()
-    {
-        parent::before();
-		$session = Session::instance();
+public function before()
+{
+    parent::before();
+    $session = Session::instance();
+    
+    $this->is_admin = Auth::instance()->logged_in('admin');
+    View::bind_global('is_admin', $this->is_admin);
+    
+    // Проверяем БД
+    $installModel = Model::factory('Floorplan_Installm');
+    $dbCheck = $installModel->checkDatabase();
+    
+    if (!$dbCheck['all_ok']) {
+        // Выводим сообщение и останавливаем выполнение
+        echo '<div style="padding: 20px; margin: 20px; border: 2px solid #d9534f; border-radius: 5px; background: #f2dede; color: #a94442;">
+            <h2><span style="font-size: 24px;">⚠️</span> База данных не установлена!</h2>
+            <p>Отсутствуют таблицы: <strong>FLOORPLAN, FLOORPLAN_POINT, BUILDING</strong></p>';
         
-        $this->is_admin = Auth::instance()->logged_in('admin');
-        View::bind_global('is_admin', $this->is_admin);
+        if ($this->is_admin) {
+            echo '<a href="' . URL::site('floorplan/install') . '" class="btn btn-success" style="display: inline-block; padding: 10px 20px; background: #5cb85c; color: #fff; text-decoration: none; border-radius: 4px;">
+                Установить базу данных
+            </a>';
+        } else {
+            echo '<p>Обратитесь к администратору</p>';
+        }
         
-       /*  if (!$this->is_admin) {
-            Session::instance()->set('message', 'Доступ запрещен');
-            Session::instance()->set('message_type', 'danger');
-            $this->redirect('floorplan');
-        } */
+        echo '</div>';
+        exit;
     }
+}
 
     /**
      * Список планов
