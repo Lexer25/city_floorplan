@@ -3,14 +3,7 @@
 class Controller_Floorplan extends Controller_Template
 {
     public $template = 'template';
-    protected $db_ready = false; // Сделаем свойство класса
-						
- 
-					 
-								   
-	
-														   
-												   
+    protected $db_ready = false;
     
     public function before()
     {
@@ -19,63 +12,40 @@ class Controller_Floorplan extends Controller_Template
         $this->is_admin = Auth::instance()->logged_in('admin');
         View::bind_global('is_admin', $this->is_admin);
         
-        // Проверяем наличие таблиц модуля
         $this->checkDatabaseTables();
-        
-        /* if (!$this->is_admin) {
-            Session::instance()->set('message', 'Доступ запрещен');
-            Session::instance()->set('message_type', 'danger');
-            $this->redirect('floorplan');
-        } */
     }
     
-/**
- * Проверка наличия таблиц модуля
- */
-private function checkDatabaseTables()
-{
-    try {
-        $installModel = Model::factory('Floorplan_Installm');
-        $result = $installModel->checkDatabase();
-        
-        if (!$result['all_ok']) {
-            $this->db_ready = false;
+    private function checkDatabaseTables()
+    {
+        try {
+            $installModel = Model::factory('Floorplan_Installm');
+            $result = $installModel->checkDatabase();
             
-            // Сохраняем результат проверки в глобальную переменную для представлений
-            View::bind_global('db_check_result', $this->db_ready);
-            
-            // Для примитивных типов нужно использовать переменную
-            $dbReady = false;
-            View::bind_global('db_ready', $this->db_ready);
-            
-            // Если страница не является страницей установки, показываем предупреждение
-            $current_action = $this->request->action();
-            $current_controller = $this->request->controller();
-            
-            if ($current_controller !== 'Floorplan_Install' && $current_action !== 'install') {
-                Session::instance()->set('db_error', 'База данных модуля "Планы объекта" не установлена. Требуется установка.');
-                Session::instance()->set('message_type', 'danger');
+            if (!$result['all_ok']) {
+                $this->db_ready = false;
+                View::bind_global('db_check_result', $this->db_ready);
+                View::bind_global('db_ready', $this->db_ready);
+                
+                $current_action = $this->request->action();
+                $current_controller = $this->request->controller();
+                
+                if ($current_controller !== 'Floorplan_Install' && $current_action !== 'install') {
+                    Session::instance()->set('db_error', 'База данных модуля "Планы объекта" не установлена. Требуется установка.');
+                    Session::instance()->set('message_type', 'danger');
+                }
+            } else {
+                $this->db_ready = true;
+                View::bind_global('db_ready', $this->db_ready);
             }
-        } else {
-            $this->db_ready = true;
-            $dbReady = true;
-            View::bind_global('db_ready', $dbReady);
+        } catch (Exception $e) {
+            $this->db_ready = false;
+            View::bind_global('db_ready', $this->db_ready);
+            Kohana::$log->add(Log::ERROR, 'Database check error: ' . $e->getMessage());
         }
-    } catch (Exception $e) {
-        // Если модель не найдена или другая ошибка
-        $this->db_ready = false;
-        $dbReady = false;
-        View::bind_global('db_ready', $dbReady);
-        Kohana::$log->add(Log::ERROR, 'Database check error: ' . $e->getMessage());
     }
-}
 
-    /**
-     * Список планов
-     */
     public function action_index()
     {
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             $content = $this->getDbNotReadyView();
             $this->template->content = $content;
@@ -101,7 +71,6 @@ private function checkDatabaseTables()
      */
     public function action_view()
     {
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             $content = $this->getDbNotReadyView();
             $this->template->content = $content;
@@ -122,6 +91,24 @@ private function checkDatabaseTables()
 
         $deviceStatuses = $this->getDeviceStatuses($points);
 
+        // ==========================================
+        // ПОИСК ТОЧКИ ПО id_dev
+        // ==========================================
+        $id_dev = $this->request->query('id_dev');
+        $highlightData = null;
+        
+        if ($id_dev !== null && $id_dev !== '') {
+            $id_dev = (int)$id_dev;
+            
+            // Ищем точку с таким id_dev
+            foreach ($points as $point) {
+                if ($point['id_dev'] == $id_dev) {
+                    $highlightData = $point;
+                    break;
+                }
+            }
+        }
+
         $content = View::factory('floorplan/view', array(
             'floorplan' => $floorplan,
             'points' => $points,
@@ -130,6 +117,8 @@ private function checkDatabaseTables()
             'deviceStatuses' => $deviceStatuses,
             'is_admin' => $this->is_admin,
             'db_ready' => $this->db_ready,
+            'highlightData' => $highlightData,
+            'searchIdDev' => $id_dev,  // Передаем ID, который искали
         ));
 
         $this->template->full_width = true;
@@ -137,11 +126,10 @@ private function checkDatabaseTables()
     }
 
     /**
-     * Редактирование плана (с поддержкой этажей)
+     * Редактирование плана
      */
     public function action_edit()
     {
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             $content = $this->getDbNotReadyView();
             $this->template->content = $content;
@@ -159,8 +147,6 @@ private function checkDatabaseTables()
             $this->redirect('floorplan');
         }
 
-        // ... остальной код метода action_edit ...
-        
         $floorplan = $model->getFloorplanById($id);
         $building = $model->getBuildingById($floorplan['id_building']);
         $floors = $model->getFloorsByBuilding($floorplan['id_building']);
@@ -179,6 +165,23 @@ private function checkDatabaseTables()
         }
         
         $points = $model->getPointsByFloorplan($currentFloorId);
+
+        // ==========================================
+        // ПОИСК ТОЧКИ ПО id_dev
+        // ==========================================
+        $id_dev = $this->request->query('id_dev');
+        $highlightData = null;
+        
+        if ($id_dev !== null && $id_dev !== '') {
+            $id_dev = (int)$id_dev;
+            
+            foreach ($points as $point) {
+                if ($point['id_dev'] == $id_dev) {
+                    $highlightData = $point;
+                    break;
+                }
+            }
+        }
 
         // Обработка POST запроса
         if ($this->request->method() == HTTP_Request::POST) {
@@ -302,6 +305,8 @@ private function checkDatabaseTables()
             'current_floor_id' => $currentFloorId,
             'main_floor_id' => $id,
             'db_ready' => $this->db_ready,
+            'highlightData' => $highlightData,
+            'searchIdDev' => $id_dev,
         ));
 
         $this->template->full_width = true;
@@ -321,7 +326,6 @@ private function checkDatabaseTables()
             return;
         }
 
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
             return;
@@ -360,7 +364,6 @@ private function checkDatabaseTables()
             return;
         }
 
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
             return;
@@ -406,7 +409,6 @@ private function checkDatabaseTables()
             return;
         }
 
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
             return;
@@ -439,7 +441,6 @@ private function checkDatabaseTables()
             $this->redirect('floorplan');
         }
 
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             $content = $this->getDbNotReadyView();
             $this->template->content = $content;
@@ -527,7 +528,6 @@ private function checkDatabaseTables()
             $this->redirect('floorplan');
         }
 
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             $content = $this->getDbNotReadyView();
             $this->template->content = $content;
@@ -555,7 +555,6 @@ private function checkDatabaseTables()
             $this->redirect('floorplan');
         }
 
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             $content = $this->getDbNotReadyView();
             $this->template->content = $content;
@@ -588,7 +587,6 @@ private function checkDatabaseTables()
             $this->redirect('floorplan');
         }
 
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             $content = $this->getDbNotReadyView();
             $this->template->content = $content;
@@ -651,7 +649,6 @@ private function checkDatabaseTables()
             $this->redirect('floorplan');
         }
 
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             $content = $this->getDbNotReadyView();
             $this->template->content = $content;
@@ -723,7 +720,6 @@ private function checkDatabaseTables()
             $this->redirect('floorplan');
         }
 
-        // Проверяем готовность БД
         if (!$this->db_ready) {
             $content = $this->getDbNotReadyView();
             $this->template->content = $content;
@@ -747,9 +743,6 @@ private function checkDatabaseTables()
         $this->redirect('floorplan/buildings');
     }
 
-    /**
-     * Получение представления для страницы с ошибкой "БД не установлена"
-     */
     private function getDbNotReadyView()
     {
         $message = Session::instance()->get_once('db_error', 'База данных модуля "Планы объекта" не установлена. Перейдите в раздел установки.');
@@ -786,9 +779,6 @@ private function checkDatabaseTables()
         return $content;
     }
 
-    /**
-     * Получить статусы устройств (имитация)
-     */
     private function getDeviceStatuses($points)
     {
         $statuses = array();
