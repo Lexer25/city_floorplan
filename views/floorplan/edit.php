@@ -396,89 +396,84 @@ if ($is_admin) {
 <!-- ========================================== -->
 <!-- БОКОВАЯ ПАНЕЛЬ С УСТРОЙСТВАМИ              -->
 <!-- ========================================== -->
-<div id="devicePanel" style="position: fixed; right: 0; top: 50%; transform: translateY(-50%); width: 220px; z-index: 100; background: #fff; border: 1px solid #ddd; border-right: none; border-radius: 4px 0 0 4px; box-shadow: -2px 0 10px rgba(0,0,0,0.1); max-height: 70vh; display: flex; flex-direction: column; transition: all 0.3s ease;">
-    <div style="background: #337ab7; color: #fff; padding: 8px 12px; border-radius: 4px 0 0 0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-        <strong style="font-size: 13px;">
-            <span class="glyphicon glyphicon-list"></span> Устройства
-        </strong>
-        <button class="btn btn-xs" onclick="toggleDevicePanel()" style="color: #fff; background: rgba(255,255,255,0.2); border: none; border-radius: 3px;">
-            <span class="glyphicon glyphicon-chevron-right" id="panelToggleIcon"></span>
-        </button>
-    </div>
-    <div id="deviceList" style="overflow-y: auto; padding: 5px; flex: 1;">
-        <?php if (!empty($availableDevices)): ?>
-            <?php foreach ($availableDevices as $device): ?>
-                <div class="device-item" 
-                     data-device-id="<?php echo $device['id_dev']; ?>"
-                     data-device-name="<?php echo htmlspecialchars($device['name']); ?>"
-                     style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: pointer; border-left: 3px solid #337ab7; font-size: 12px; transition: all 0.2s ease;"
-                     onclick="selectDevice(this)"
-                     onmouseover="this.style.background='#e8f0fe'"
-                     onmouseout="if (!this.classList.contains('selected')) this.style.background='#f9f9f9'">
-                    <?php echo htmlspecialchars($device['name']); ?>
-                    <span style="color: #999; font-size: 10px;">(id=<?php echo $device['id_dev']; ?>)</span>
-                </div>
-            <?php endforeach; ?>
-        <?php else: ?>
-            <div style="padding: 15px; text-align: center; color: #999; font-size: 12px;">
-                <span class="glyphicon glyphicon-info-sign"></span><br>
-                Нет доступных устройств
-            </div>
-        <?php endif; ?>
-    </div>
-    <div id="devicePanelFooter" style="padding: 5px 10px; background: #f5f5f5; border-top: 1px solid #ddd; font-size: 11px; color: #999; flex-shrink: 0;">
-        <span id="selectedDeviceInfo">Выберите устройство для добавления</span>
-    </div>
-</div>
-
 <!-- ========================================== -->
-<!-- JQUERY UI DIALOG ДЛЯ ДОБАВЛЕНИЯ ТОЧКИ     -->
+<!-- БОКОВАЯ ПАНЕЛЬ С УСТРОЙСТВАМИ              -->
 <!-- ========================================== -->
-<div id="clickAddPointDialog" title="Добавить точку кликом" style="display: none;">
-    <form id="clickAddPointForm">
-        <div class="row">
-            <div class="col-md-6">
-                <div class="form-group">
-                    <label>Позиция X:</label>
-                    <input type="text" class="form-control" id="clickX" readonly style="background: #f5f5f5; width: 100%;">
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="form-group">
-                    <label>Позиция Y:</label>
-                    <input type="text" class="form-control" id="clickY" readonly style="background: #f5f5f5; width: 100%;">
-                </div>
-            </div>
+<div id="devicePanelWrapper" style="position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 100; display: flex; align-items: center;">
+    
+    <!-- Кнопка-якорь (всегда видна справа) -->
+    <div id="panelAnchor" onclick="toggleDevicePanel()" style="
+        width: 32px;
+        height: 60px;
+        background: #337ab7;
+        border-radius: 4px 0 0 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        flex-shrink: 0;
+        z-index: 101;
+        margin-right: 0;
+    ">
+        <span id="anchorIcon" class="glyphicon glyphicon-chevron-right" style="font-size: 14px;"></span>
+    </div>
+    
+    <!-- Сама панель -->
+    <div id="devicePanel" style="
+        width: 220px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-right: none;
+        border-radius: 4px 0 0 4px;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        max-height: 70vh;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        transform: translateX(0);
+        margin-right: -1px;
+    ">
+        <!-- Заголовок -->
+        <div style="background: #337ab7; color: #fff; padding: 8px 12px; border-radius: 4px 0 0 0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <strong style="font-size: 13px;">
+                <span class="glyphicon glyphicon-list"></span> Устройства
+            </strong>
+            <span style="font-size: 11px; opacity: 0.7;">
+                <?php echo count($availableDevices); ?> устройств
+            </span>
         </div>
         
-        <div class="form-group">
-            <label>Устройство <span class="text-danger">*</span></label>
-            <select class="form-control" id="clickDeviceId" required style="width: 100%;">
-                <option value="">Выберите устройство</option>
+        <!-- Список устройств -->
+        <div id="deviceList" style="overflow-y: auto; padding: 5px; flex: 1;">
+            <?php if (!empty($availableDevices)): ?>
                 <?php foreach ($availableDevices as $device): ?>
-                    <option value="<?php echo $device['id_dev']; ?>">
-                        <?php echo htmlspecialchars($device['name']); ?> (id=<?php echo $device['id_dev']; ?>)
-                    </option>
+                    <div class="device-item" 
+                         data-device-id="<?php echo $device['id_dev']; ?>"
+                         data-device-name="<?php echo htmlspecialchars($device['name']); ?>"
+                         style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: pointer; border-left: 3px solid #337ab7; font-size: 12px; transition: all 0.2s ease;"
+                         onclick="selectDevice(this)"
+                         onmouseover="this.style.background='#e8f0fe'"
+                         onmouseout="if (!this.classList.contains('selected')) this.style.background='#f9f9f9'">
+                        <?php echo htmlspecialchars($device['name']); ?>
+                        <span style="color: #999; font-size: 10px;">(id=<?php echo $device['id_dev']; ?>)</span>
+                    </div>
                 <?php endforeach; ?>
-            </select>
+            <?php else: ?>
+                <div style="padding: 15px; text-align: center; color: #999; font-size: 12px;">
+                    <span class="glyphicon glyphicon-info-sign"></span><br>
+                    Нет доступных устройств
+                </div>
+            <?php endif; ?>
         </div>
         
-        <div class="form-group">
-            <label>Тип точки</label>
-            <select class="form-control" id="clickPointType" style="width: 100%;">
-                <option value="door">🚪 Дверь</option>
-                <option value="turnstile">🚧 Турникет</option>
-                <option value="reader">📡 Считыватель</option>
-                <option value="camera">📷 Камера</option>
-            </select>
+        <!-- Футер -->
+        <div id="devicePanelFooter" style="padding: 5px 10px; background: #f5f5f5; border-top: 1px solid #ddd; font-size: 11px; color: #999; flex-shrink: 0;">
+            <span id="selectedDeviceInfo">Выберите устройство для добавления</span>
         </div>
-        
-        <div class="form-group">
-            <label>Метка (название)</label>
-            <input type="text" class="form-control" id="clickLabel" 
-                   placeholder="Например: Главный вход" maxlength="100" style="width: 100%;">
-        </div>
-    </form>
+    </div>
 </div>
 
 <!-- ========================================== -->
@@ -566,6 +561,56 @@ if ($is_admin) {
             </div>
         </div>
     </div>
+</div>
+
+<!-- ========================================== -->
+<!-- JQUERY UI DIALOG ДЛЯ ДОБАВЛЕНИЯ ТОЧКИ     -->
+<!-- ========================================== -->
+<div id="clickAddPointDialog" title="Добавить точку кликом" style="display: none;">
+    <form id="clickAddPointForm">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label>Позиция X:</label>
+                    <input type="text" class="form-control" id="clickX" readonly style="background: #f5f5f5; width: 100%;">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label>Позиция Y:</label>
+                    <input type="text" class="form-control" id="clickY" readonly style="background: #f5f5f5; width: 100%;">
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Устройство <span class="text-danger">*</span></label>
+            <select class="form-control" id="clickDeviceId" required style="width: 100%;">
+                <option value="">Выберите устройство</option>
+                <?php foreach ($availableDevices as $device): ?>
+                    <option value="<?php echo $device['id_dev']; ?>">
+                        <?php echo htmlspecialchars($device['name']); ?> (id=<?php echo $device['id_dev']; ?>)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Тип точки</label>
+            <select class="form-control" id="clickPointType" style="width: 100%;">
+                <option value="door">🚪 Дверь</option>
+                <option value="turnstile">🚧 Турникет</option>
+                <option value="reader">📡 Считыватель</option>
+                <option value="camera">📷 Камера</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Метка (название)</label>
+            <input type="text" class="form-control" id="clickLabel" 
+                   placeholder="Например: Главный вход" maxlength="100" style="width: 100%;">
+        </div>
+    </form>
 </div>
 
 <!-- ========================================== -->
@@ -669,7 +714,6 @@ var clickX = 0;
 var clickY = 0;
 var selectedDeviceId = null;
 var selectedDeviceName = null;
-var panelVisible = true;
 
 function toggleClickMode() {
     clickModeEnabled = !clickModeEnabled;
@@ -703,17 +747,35 @@ function toggleClickMode() {
     }
 }
 
+// ==========================================
+// БОКОВАЯ ПАНЕЛЬ УСТРОЙСТВ
+// ==========================================
+
+var panelVisible = true;
+var panelWidth = 220;
+var panelVisiblePart = 132;
+
+// ==========================================
+// БОКОВАЯ ПАНЕЛЬ УСТРОЙСТВ
+// ==========================================
+
+//var panelVisible = true;
+
 function toggleDevicePanel() {
     panelVisible = !panelVisible;
     var $panel = $('#devicePanel');
-    var $icon = $('#panelToggleIcon');
+    var $anchorIcon = $('#anchorIcon');
     
     if (panelVisible) {
-        $panel.css('transform', 'translateY(-50%) translateX(0)');
-        $icon.removeClass('glyphicon-chevron-left').addClass('glyphicon-chevron-right');
+        // РАЗВЕРНУТО: панель полностью видна
+        $panel.css('transform', 'translateX(0)');
+        $anchorIcon.removeClass('glyphicon-chevron-left').addClass('glyphicon-chevron-right');
+        $anchorIcon.attr('title', 'Свернуть панель');
     } else {
-        $panel.css('transform', 'translateY(-50%) translateX(calc(100% - 32px))');
-        $icon.removeClass('glyphicon-chevron-right').addClass('glyphicon-chevron-left');
+        // СВЕРНУТО: панель уезжает вправо (скрывается за якорем)
+        $panel.css('transform', 'translateX(100%)');
+        $anchorIcon.removeClass('glyphicon-chevron-right').addClass('glyphicon-chevron-left');
+        $anchorIcon.attr('title', 'Развернуть панель');
     }
 }
 
@@ -732,6 +794,12 @@ function selectDevice(el) {
     }
 }
 
+// Инициализация при загрузке (панель развернута)
+$(document).ready(function() {
+    $('#devicePanel').css('transform', 'translateX(0)');
+});
+
+// Клик на изображении в режиме клика
 $(document).ready(function() {
     $('#floorplanImage').on('click', function(e) {
         if (!clickModeEnabled) return;
@@ -773,15 +841,6 @@ function saveClickPoint() {
     var label = $('#clickLabel').val();
     var floorplanId = <?php echo $current_floor_id; ?>;
     
-    // ОТЛАДКА: выводим данные в консоль
-    console.log('=== saveClickPoint ===');
-    console.log('deviceId:', deviceId);
-    console.log('pointType:', pointType);
-    console.log('label:', label);
-    console.log('floorplanId:', floorplanId);
-    console.log('clickX:', clickX);
-    console.log('clickY:', clickY);
-    
     if (!deviceId) {
         alert('Пожалуйста, выберите устройство');
         $('#clickDeviceId').focus();
@@ -796,28 +855,23 @@ function saveClickPoint() {
     var dialog = $('#clickAddPointDialog');
     var buttons = dialog.dialog('option', 'buttons');
     
-    // Меняем текст кнопки
     if (buttons && buttons[1]) {
         buttons[1].text = '<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Добавление...';
         buttons[1].disabled = true;
         dialog.dialog('option', 'buttons', buttons);
     }
     
-    var postData = {
-        floorplan_id: floorplanId,
-        x: clickX,
-        y: clickY,
-        device_id: deviceId,
-        point_type: pointType,
-        label: label || ''
-    };
-    
-    console.log('Отправка данных:', postData);
-    
     $.ajax({
         url: '<?php echo URL::site("floorplan/addPointAjax"); ?>',
         type: 'POST',
-        data: postData,
+        data: {
+            floorplan_id: floorplanId,
+            x: clickX,
+            y: clickY,
+            device_id: deviceId,
+            point_type: pointType,
+            label: label || ''
+        },
         dataType: 'json',
         success: function(response) {
             console.log('Ответ сервера:', response);
@@ -834,7 +888,6 @@ function saveClickPoint() {
                 location.reload();
             } else {
                 alert('Ошибка при добавлении точки: ' + (response.error || 'Неизвестная ошибка'));
-                // Восстанавливаем кнопку
                 if (buttons && buttons[1]) {
                     buttons[1].text = 'Добавить точку';
                     buttons[1].disabled = false;
@@ -844,8 +897,7 @@ function saveClickPoint() {
         },
         error: function(xhr, status, error) {
             console.error('AJAX Error:', xhr, status, error);
-            console.error('Response text:', xhr.responseText);
-            alert('Ошибка при отправке запроса: ' + error + '\n\nПроверьте консоль браузера (F12)');
+            alert('Ошибка при отправке запроса: ' + error);
             
             if (buttons && buttons[1]) {
                 buttons[1].text = 'Добавить точку';
@@ -856,6 +908,7 @@ function saveClickPoint() {
     });
 }
 
+// Стили для диалога
 $('<style>').text(
     '.glyphicon-spin {\n' +
     '    -webkit-animation: spin 1s infinite linear;\n' +
