@@ -18,34 +18,38 @@ class Model_Floorplan_Installm extends Model
      * Выполнить SQL скрипт (разбивка по командам)
 	 *$this->mess = Database::instance('fb')->query(NULL, $query);
      */
-    private function executeSqlScript($sql)
-    {
-        if (empty($sql)) {
-            return array('success' => false, 'error' => 'Empty SQL');
-        }
-        
-        $db = Database::instance('fb');
-        $results = array();
-        
-        // Разбиваем на отдельные команды
-        $commands = $this->splitSqlCommands($sql);
- //echo Debug::vars('32', $commands);exit;  
-        foreach ($commands as $command) {
-            $command = trim($command);
-            if (empty($command)) continue;
-            
-            try {
-                //DB::query(Database::RAW, $command)->execute($db);
-				Database::instance('fb')->query(NULL, $command);
-                $results[] = array('success' => true, 'command' => substr($command, 0, 100) . '...');
-            } catch (Exception $e) {
-                $results[] = array('success' => false, 'command' => substr($command, 0, 100) . '...', 'error' => $e->getMessage());
-				Kohana::$log->add(Log::ERROR, '43 executeSqlScript: ' . $e->getMessage());
-            }
-        }
-        
-        return $results;
+private function executeSqlScript($sql)
+{
+    if (empty($sql)) {
+        return array('success' => false, 'error' => 'Empty SQL');
     }
+    
+    $db = Database::instance('fb');
+    $results = array();
+    
+    // Разбиваем на отдельные команды
+    $commands = $this->splitSqlCommands($sql);
+    
+    foreach ($commands as $command) {
+        $command = trim($command);
+        if (empty($command)) continue;
+        
+        try {
+            // Каждая команда в своей транзакции
+            $db->begin();
+            $db->query(NULL, $command);
+            $db->commit();
+            $results[] = array('success' => true, 'command' => substr($command, 0, 100) . '...');
+           // Kohana::$log->add(Log::DEBUG, 'SQL executed successfully: ' . substr($command, 0, 100));
+        } catch (Exception $e) {
+            $db->rollback();
+            $results[] = array('success' => false, 'command' => substr($command, 0, 100) . '...', 'error' => $e->getMessage());
+            Kohana::$log->add(Log::ERROR, 'SQL error: ' . $e->getMessage() . ' in command: ' . substr($command, 0, 200));
+        }
+    }
+    
+    return $results;
+}
 
 /**
  * Разбить SQL на отдельные команды и удалить SET TERM и разделители

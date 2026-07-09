@@ -7,6 +7,7 @@ class Controller_Floorplan extends Controller_Template
     public function before()
     {
         parent::before();
+		$session = Session::instance();
         
         $this->is_admin = Auth::instance()->logged_in('admin');
         View::bind_global('is_admin', $this->is_admin);

@@ -12,12 +12,12 @@ if (Kohana::$config->load('adm')) {
             'order' => 95,
 			'children'=> array(
             array(
-                'title' => 'Планы объекта 2',
+                'title' => 'Планы объекта',
                 'url' => 'floorplan',
                 'icon' => 'fa-search',
             ),
             array(
-                'title' => 'Установка БД планов 2',
+                'title' => 'Установка БД планов',
                 'url' => 'floorplan/install',
                 'icon' => 'fa-lock',
             ),

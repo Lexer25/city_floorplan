@@ -1,10 +1,10 @@
 -- ==========================================
--- РЈРЎРўРђРќРћР’РљРђ РўРђР‘Р›РР¦ Р”Р›РЇ РњРћР”РЈР›РЇ FLOORPLAN
+-- УСТАНОВКА ТАБЛИЦ ДЛЯ МОДУЛЯ FLOORPLAN
 -- ==========================================
 
--- 1. РўРђР‘Р›РР¦Р«
+-- 1. ТАБЛИЦЫ
 
--- РўР°Р±Р»РёС†Р° Р·РґР°РЅРёР№
+-- Таблица зданий
 CREATE TABLE BUILDING (
     ID_BUILDING INTEGER NOT NULL,
     NAME VARCHAR(100) NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE BUILDING (
     FLOORS_COUNT INTEGER DEFAULT 1
 );
 
--- РўР°Р±Р»РёС†Р° РїР»Р°РЅРѕРІ
+-- Таблица планов
 CREATE TABLE FLOORPLAN (
     ID_FLOORPLAN INTEGER NOT NULL,
     NAME VARCHAR(100) NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE FLOORPLAN (
     CREATED TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- РўР°Р±Р»РёС†Р° С‚РѕС‡РµРє РЅР° РїР»Р°РЅРµ
+-- Таблица точек на плане
 CREATE TABLE FLOORPLAN_POINT (
     ID_POINT INTEGER NOT NULL,
     ID_FLOORPLAN INTEGER NOT NULL,
@@ -37,27 +37,32 @@ CREATE TABLE FLOORPLAN_POINT (
     LABEL VARCHAR(100)
 );
 
--- 2. РџР•Р Р’РР§РќР«Р• РљР›Р®Р§Р
+COMMIT;
+-- 2. ПЕРВИЧНЫЕ КЛЮЧИ
 
 ALTER TABLE BUILDING ADD CONSTRAINT PK_BUILDING PRIMARY KEY (ID_BUILDING);
 ALTER TABLE FLOORPLAN ADD CONSTRAINT PK_FLOORPLAN PRIMARY KEY (ID_FLOORPLAN);
 ALTER TABLE FLOORPLAN_POINT ADD CONSTRAINT PK_FLOORPLAN_POINT PRIMARY KEY (ID_POINT);
 
--- 3. Р’РќР•РЁРќРР• РљР›Р®Р§Р
+COMMIT;
 
-ALTER TABLE FLOORPLAN ADD CONSTRAINT FK_FLOORPLAN_BUILDING
-    FOREIGN KEY (ID_BUILDING) REFERENCES BUILDING(ID_BUILDING);
+-- 3. ВНЕШНИЕ КЛЮЧИ
 
-ALTER TABLE FLOORPLAN_POINT ADD CONSTRAINT FK_FLOORPLAN_POINT
-    FOREIGN KEY (ID_FLOORPLAN) REFERENCES FLOORPLAN(ID_FLOORPLAN) ON DELETE CASCADE;
+ALTER TABLE FLOORPLAN ADD CONSTRAINT FK_FLOORPLAN_BUILDING FOREIGN KEY (ID_BUILDING) REFERENCES BUILDING(ID_BUILDING);
 
--- 4. Р“Р•РќР•Р РђРўРћР Р«
+ALTER TABLE FLOORPLAN_POINT ADD CONSTRAINT FK_FLOORPLAN_POINT FOREIGN KEY (ID_FLOORPLAN) REFERENCES FLOORPLAN(ID_FLOORPLAN) ON DELETE CASCADE;
+	
+	COMMIT;
+
+-- 4. ГЕНЕРАТОРЫ
 
 CREATE GENERATOR GEN_BUILDING_ID;
 CREATE GENERATOR GEN_FLOORPLAN_ID;
 CREATE GENERATOR GEN_FLOORPLAN_POINT_ID;
 
--- 5. РўР РР“Р“Р•Р Р«
+COMMIT;
+
+-- 5. ТРИГГЕРЫ
 --TRG_BUILDING_BI
 SET TERM ^ ;
 CREATE TRIGGER TRG_BUILDING_BI FOR BUILDING
@@ -95,10 +100,12 @@ END
 SET TERM ; ^
 
 
--- 6. РќРђР§РђР›Р¬РќР«Р• Р”РђРќРќР«Р•
+-- 6. НАЧАЛЬНЫЕ ДАННЫЕ
 
 INSERT INTO BUILDING (ID_BUILDING, NAME, ADDRESS, FLOORS_COUNT) 
-VALUES (1, 'Р“Р»Р°РІРЅРѕРµ Р·РґР°РЅРёРµ', 'Рі. РњРѕСЃРєРІР°, СѓР». РџСЂРёРјРµСЂРЅР°СЏ, Рґ. 1', 5);
+VALUES (1, 'Главное здание', 'г. Москва, ул. Примерная, д. 1', 5);
 
--- РЎР±СЂРѕСЃ РіРµРЅРµСЂР°С‚РѕСЂРѕРІ РґР»СЏ РЅР°С‡Р°Р»СЊРЅС‹С… РґР°РЅРЅС‹С…
+-- Сброс генераторов для начальных данных
 SET GENERATOR GEN_BUILDING_ID TO 1;
+
+COMMIT;
