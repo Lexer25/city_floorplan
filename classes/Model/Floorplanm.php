@@ -2,6 +2,14 @@
 
 class Model_Floorplanm extends Model
 {
+    private $db;
+    
+    public function __construct()
+    {
+       
+        $this->db = Database::instance('fb');
+    }
+    
     /**
      * Преобразование ключей массива из верхнего регистра в нижний
      * и конвертация кодировки из Windows-1251 в UTF-8
@@ -40,7 +48,7 @@ class Model_Floorplanm extends Model
                 ORDER BY fp.id_building, fp.floor_number';
 
         $query = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         return $this->convertToUtf8($query);
@@ -57,7 +65,7 @@ class Model_Floorplanm extends Model
                 WHERE fp.id_floorplan = ' . intval($id);
 
         $query = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         if (count($query) > 0) {
@@ -80,7 +88,7 @@ class Model_Floorplanm extends Model
                 AND fp.floor_number = ' . intval($floorNumber);
 
         $query = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         if (count($query) > 0) {
@@ -103,7 +111,7 @@ class Model_Floorplanm extends Model
                 ORDER BY fp.floor_number';
 
         $query = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         return $this->convertToUtf8($query);
@@ -119,7 +127,7 @@ class Model_Floorplanm extends Model
                 ORDER BY b.name';
 
         $query = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         return $this->convertToUtf8($query);
@@ -135,7 +143,7 @@ class Model_Floorplanm extends Model
                 WHERE b.id_building = ' . intval($id);
 
         $query = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         if (count($query) > 0) {
@@ -160,11 +168,10 @@ class Model_Floorplanm extends Model
                 VALUES ('{$nameForDb}', '{$addressForDb}', " . intval($floorsCount) . ")";
 
         try {
-            $result = DB::query(Database::INSERT, $sql)
-                ->execute(Database::instance('fb'));
+            DB::query(Database::INSERT, $sql)->execute($this->db);
 
             $lastId = DB::query(Database::SELECT, "SELECT MAX(id_building) as last_id FROM building")
-                ->execute(Database::instance('fb'))
+                ->execute($this->db)
                 ->as_array();
 
             return $lastId[0]['LAST_ID'];
@@ -191,9 +198,7 @@ class Model_Floorplanm extends Model
                 WHERE id_building = " . intval($id);
 
         try {
-            DB::query(Database::UPDATE, $sql)
-                ->execute(Database::instance('fb'));
-
+            DB::query(Database::UPDATE, $sql)->execute($this->db);
             return true;
         } catch (Exception $e) {
             Kohana::$log->add(Log::ERROR, 'Error updating building: ' . $e->getMessage());
@@ -207,21 +212,18 @@ class Model_Floorplanm extends Model
     public function deleteBuilding($id)
     {
         try {
-            $db = Database::instance('fb');
-
             // Проверяем, есть ли этажи у здания
             $checkSql = "SELECT COUNT(*) as cnt FROM floorplan WHERE id_building = " . intval($id);
             $result = DB::query(Database::SELECT, $checkSql)
-                ->execute($db)
+                ->execute($this->db)
                 ->as_array();
 
             if ($result[0]['CNT'] > 0) {
                 return array('success' => false, 'error' => 'У здания есть этажи. Сначала удалите все этажи.');
             }
 
-            // Удаляем здание
             $sql = "DELETE FROM building WHERE id_building = " . intval($id);
-            DB::query(Database::DELETE, $sql)->execute($db);
+            DB::query(Database::DELETE, $sql)->execute($this->db);
 
             return array('success' => true);
         } catch (Exception $e) {
@@ -238,7 +240,7 @@ class Model_Floorplanm extends Model
         $sql = "SELECT COUNT(*) as cnt FROM building WHERE id_building = " . intval($id);
 
         $result = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         return ($result[0]['CNT'] > 0);
@@ -257,7 +259,7 @@ class Model_Floorplanm extends Model
                 ORDER BY fp.point_type, fp.label';
 
         $query = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         return $this->convertToUtf8($query);
@@ -274,7 +276,7 @@ class Model_Floorplanm extends Model
                 ORDER BY d.name';
 
         $query = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         return $this->convertToUtf8($query);
@@ -297,11 +299,10 @@ class Model_Floorplanm extends Model
                         " . intval($buildingId) . ", " . intval($floorNumber) . ", '{$floorNameForDb}')";
 
         try {
-            $result = DB::query(Database::INSERT, $sql)
-                ->execute(Database::instance('fb'));
+            DB::query(Database::INSERT, $sql)->execute($this->db);
 
             $lastId = DB::query(Database::SELECT, "SELECT MAX(id_floorplan) as last_id FROM floorplan")
-                ->execute(Database::instance('fb'))
+                ->execute($this->db)
                 ->as_array();
 
             return $lastId[0]['LAST_ID'];
@@ -312,7 +313,7 @@ class Model_Floorplanm extends Model
     }
 
     /**
-     * Обновить план (с возможностью обновить изображение)
+     * Обновить план
      */
     public function updateFloorplan($id, $name, $description, $image, $width, $height, $buildingId = null, $floorNumber = null, $floorName = null)
     {
@@ -343,9 +344,7 @@ class Model_Floorplanm extends Model
         $sql .= " WHERE id_floorplan = " . intval($id);
 
         try {
-            DB::query(Database::UPDATE, $sql)
-                ->execute(Database::instance('fb'));
-
+            DB::query(Database::UPDATE, $sql)->execute($this->db);
             return true;
         } catch (Exception $e) {
             Kohana::$log->add(Log::ERROR, 'Error updating floorplan: ' . $e->getMessage());
@@ -359,17 +358,13 @@ class Model_Floorplanm extends Model
     public function deleteFloorplan($id)
     {
         try {
-            $db = Database::instance('fb');
-
-            // Удаляем все точки плана
             DB::query(Database::DELETE,
                 "DELETE FROM floorplan_point WHERE id_floorplan = " . intval($id))
-                ->execute($db);
+                ->execute($this->db);
 
-            // Удаляем сам план
             DB::query(Database::DELETE,
                 "DELETE FROM floorplan WHERE id_floorplan = " . intval($id))
-                ->execute($db);
+                ->execute($this->db);
 
             return true;
         } catch (Exception $e) {
@@ -379,27 +374,67 @@ class Model_Floorplanm extends Model
     }
 
     /**
-     * Добавить точку на план
+     * Добавить точку на план (ИСПРАВЛЕННАЯ ВЕРСИЯ)
      */
     public function addPoint($floorplanId, $x, $y, $deviceId, $point_type = 'door', $label = '')
     {
-        $labelForDb = iconv('UTF-8', 'Windows-1251//IGNORE', $label);
-        $labelForDb = addslashes($labelForDb);
-
-        $sql = "INSERT INTO floorplan_point (id_floorplan, x_pos, y_pos, id_dev, point_type, label)
-                VALUES (" . intval($floorplanId) . ", " . floatval($x) . ", " . floatval($y) . ", " . intval($deviceId) . ", '{$point_type}', '{$labelForDb}')";
-
         try {
-            $result = DB::query(Database::INSERT, $sql)
-                ->execute(Database::instance('fb'));
-
-            $lastId = DB::query(Database::SELECT, "SELECT MAX(id_point) as last_id FROM floorplan_point")
-                ->execute(Database::instance('fb'))
+            // Проверяем, существует ли устройство с таким id_dev
+            $checkSql = "SELECT COUNT(*) as cnt FROM device WHERE id_dev = " . intval($deviceId);
+            $checkResult = DB::query(Database::SELECT, $checkSql)
+                ->execute($this->db)
                 ->as_array();
+            
+            if ($checkResult[0]['CNT'] == 0) {
+                Kohana::$log->add(Log::ERROR, 'Device not found: id_dev=' . $deviceId);
+                return false;
+            }
+            
+            // Проверяем, существует ли план
+            $checkFloorplanSql = "SELECT COUNT(*) as cnt FROM floorplan WHERE id_floorplan = " . intval($floorplanId);
+            $checkFloorplanResult = DB::query(Database::SELECT, $checkFloorplanSql)
+                ->execute($this->db)
+                ->as_array();
+            
+            if ($checkFloorplanResult[0]['CNT'] == 0) {
+                Kohana::$log->add(Log::ERROR, 'Floorplan not found: id_floorplan=' . $floorplanId);
+                return false;
+            }
+            
+            // Экранируем строки
+            $labelForDb = iconv('UTF-8', 'Windows-1251//IGNORE', $label);
+            $labelForDb = addslashes($labelForDb);
+            $point_type_escaped = addslashes($point_type);
+            
+            // Проверяем обязательные поля
+            if ($floorplanId <= 0 || $deviceId <= 0) {
+                Kohana::$log->add(Log::ERROR, 'Invalid parameters: floorplanId=' . $floorplanId . ', deviceId=' . $deviceId);
+                return false;
+            }
 
-            return $lastId[0]['LAST_ID'];
+            // Формируем SQL-запрос
+            $sql = "INSERT INTO floorplan_point (id_floorplan, x_pos, y_pos, id_dev, point_type, label)
+                    VALUES (" . intval($floorplanId) . ", " . floatval($x) . ", " . floatval($y) . ", 
+                            " . intval($deviceId) . ", '{$point_type_escaped}', '{$labelForDb}')";
+            
+            Kohana::$log->add(Log::DEBUG, 'SQL: ' . $sql);
+            
+            // Выполняем запрос
+            DB::query(Database::INSERT, $sql)->execute($this->db);
+            
+            // Получаем последний ID
+            $lastIdResult = DB::query(Database::SELECT, "SELECT MAX(id_point) as last_id FROM floorplan_point")
+                ->execute($this->db)
+                ->as_array();
+            
+            $lastId = $lastIdResult[0]['LAST_ID'];
+            
+            Kohana::$log->add(Log::INFO, 'Point added: id_point=' . $lastId . ', id_dev=' . $deviceId);
+            
+            return $lastId;
         } catch (Exception $e) {
             Kohana::$log->add(Log::ERROR, 'Error adding point: ' . $e->getMessage());
+            Kohana::$log->add(Log::ERROR, 'SQL: ' . (isset($sql) ? $sql : ''));
             return false;
         }
     }
@@ -421,9 +456,7 @@ class Model_Floorplanm extends Model
                 WHERE id_point = " . intval($id);
 
         try {
-            DB::query(Database::UPDATE, $sql)
-                ->execute(Database::instance('fb'));
-
+            DB::query(Database::UPDATE, $sql)->execute($this->db);
             return true;
         } catch (Exception $e) {
             Kohana::$log->add(Log::ERROR, 'Error updating point: ' . $e->getMessage());
@@ -438,9 +471,7 @@ class Model_Floorplanm extends Model
     {
         try {
             $sql = "DELETE FROM floorplan_point WHERE id_point = " . intval($id);
-            DB::query(Database::DELETE, $sql)
-                ->execute(Database::instance('fb'));
-
+            DB::query(Database::DELETE, $sql)->execute($this->db);
             return true;
         } catch (Exception $e) {
             Kohana::$log->add(Log::ERROR, 'Error deleting point: ' . $e->getMessage());
@@ -454,8 +485,6 @@ class Model_Floorplanm extends Model
     public function savePointsPositions($points)
     {
         try {
-            $db = Database::instance('fb');
-
             foreach ($points as $point) {
                 $id = (int)$point['id'];
                 $x = (float)$point['x'];
@@ -465,7 +494,7 @@ class Model_Floorplanm extends Model
                         SET x_pos = " . $x . ", y_pos = " . $y . "
                         WHERE id_point = " . $id;
 
-                DB::query(Database::UPDATE, $sql)->execute($db);
+                DB::query(Database::UPDATE, $sql)->execute($this->db);
             }
 
             return true;
@@ -483,7 +512,7 @@ class Model_Floorplanm extends Model
         $sql = "SELECT COUNT(*) as cnt FROM floorplan WHERE id_floorplan = " . intval($id);
 
         $result = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         return ($result[0]['CNT'] > 0);
@@ -499,7 +528,7 @@ class Model_Floorplanm extends Model
                 AND floor_number = " . intval($floorNumber);
 
         $result = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         return ($result[0]['CNT'] > 0);
@@ -510,16 +539,13 @@ class Model_Floorplanm extends Model
      */
     public function copyFloorplan($fromId, $newFloorNumber, $newFloorName = '')
     {
-        // Получаем исходный план
         $source = $this->getFloorplanById($fromId);
         if (!$source) {
             return false;
         }
 
-        // Получаем все точки исходного плана
         $points = $this->getPointsByFloorplan($fromId);
 
-        // Создаем новый план
         $newName = $source['name'] . ' (копия ' . $newFloorNumber . ' эт.)';
         $newId = $this->addFloorplan(
             $newName,
@@ -536,7 +562,6 @@ class Model_Floorplanm extends Model
             return false;
         }
 
-        // Копируем точки
         foreach ($points as $point) {
             $this->addPoint(
                 $newId,
@@ -560,7 +585,7 @@ class Model_Floorplanm extends Model
                 WHERE id_building = " . intval($buildingId);
 
         $result = DB::query(Database::SELECT, $sql)
-            ->execute(Database::instance('fb'))
+            ->execute($this->db)
             ->as_array();
 
         return $result[0]['MAX_FLOOR'] ?: 0;

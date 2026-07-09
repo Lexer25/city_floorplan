@@ -350,52 +350,53 @@ class Controller_Floorplan extends Controller_Template
 
         echo json_encode(array('success' => $result));
     }
+/**
+ * AJAX: Добавление точки
+ */
+public function action_addPointAjax()
+{
+    $this->auto_render = false;
+    header('Content-Type: application/json');
 
-    /**
-     * AJAX: Добавление точки
-     */
-    public function action_addPointAjax()
-    {
-        $this->auto_render = false;
-        header('Content-Type: application/json');
-
-        if (!$this->is_admin) {
-            echo json_encode(array('success' => false, 'error' => 'Доступ запрещён'));
-            return;
-        }
-
-        if (!$this->db_ready) {
-            echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
-            return;
-        }
-
-        if ($this->request->method() != HTTP_Request::POST) {
-            echo json_encode(array('success' => false, 'error' => 'Invalid request method'));
-            return;
-        }
-
-        $floorplanId = (int)$this->request->post('floorplan_id');
-        $x = (float)$this->request->post('x');
-        $y = (float)$this->request->post('y');
-        $deviceId = (int)$this->request->post('device_id');
-        $point_type = $this->request->post('point_type', 'door');
-        $label = $this->request->post('label', '');
-
-        if ($floorplanId <= 0 || $deviceId <= 0) {
-            echo json_encode(array('success' => false, 'error' => 'Invalid parameters'));
-            return;
-        }
-
-        $model = Model::factory('Floorplanm');
-        $result = $model->addPoint($floorplanId, $x, $y, $deviceId, $point_type, $label);
-
-        if ($result) {
-            echo json_encode(array('success' => true, 'id' => $result));
-        } else {
-            echo json_encode(array('success' => false, 'error' => 'Ошибка при добавлении точки'));
-        }
+    if (!$this->is_admin) {
+        echo json_encode(array('success' => false, 'error' => 'Доступ запрещён'));
+        return;
     }
 
+    if (!$this->db_ready) {
+        echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
+        return;
+    }
+
+    if ($this->request->method() != HTTP_Request::POST) {
+        echo json_encode(array('success' => false, 'error' => 'Invalid request method'));
+        return;
+    }
+
+    // Получаем все данные в массив
+    $post = $this->request->post();
+
+    $floorplanId = isset($post['floorplan_id']) ? (int)$post['floorplan_id'] : 0;
+    $x = isset($post['x']) ? (float)$post['x'] : 0;
+    $y = isset($post['y']) ? (float)$post['y'] : 0;
+    $deviceId = isset($post['device_id']) ? (int)$post['device_id'] : 0;
+    $point_type = isset($post['point_type']) ? trim($post['point_type']) : 'door';
+    $label = isset($post['label']) ? trim($post['label']) : '';
+
+    if ($floorplanId <= 0 || $deviceId <= 0) {
+        echo json_encode(array('success' => false, 'error' => 'Invalid parameters'));
+        return;
+    }
+
+    $model = Model::factory('Floorplanm');
+    $result = $model->addPoint($floorplanId, $x, $y, $deviceId, $point_type, $label);
+
+    if ($result) {
+        echo json_encode(array('success' => true, 'id' => $result));
+    } else {
+        echo json_encode(array('success' => false, 'error' => 'Ошибка при добавлении точки в БД'));
+    }
+}
     /**
      * AJAX: Удаление точки
      */
