@@ -3,35 +3,70 @@
 class Controller_Floorplan extends Controller_Template
 {
     public $template = 'template';
+    private $db_ready = true;
+						
+ 
+					 
+								   
+	
+														   
+												   
     
-public function before()
+    public function before()
+    {
+        parent::before();
+        
+        $this->is_admin = Auth::instance()->logged_in('admin');
+        View::bind_global('is_admin', $this->is_admin);
+        
+        // Проверяем наличие таблиц модуля
+        $this->checkDatabaseTables();
+        
+        /* if (!$this->is_admin) {
+            Session::instance()->set('message', 'Доступ запрещен');
+            Session::instance()->set('message_type', 'danger');
+            $this->redirect('floorplan');
+        } */
+    }
+    
+/**
+ * Проверка наличия таблиц модуля
+ */
+private function checkDatabaseTables()
 {
-    parent::before();
-    $session = Session::instance();
-    
-    $this->is_admin = Auth::instance()->logged_in('admin');
-    View::bind_global('is_admin', $this->is_admin);
-    
-    // Проверяем БД
-    $installModel = Model::factory('Floorplan_Installm');
-    $dbCheck = $installModel->checkDatabase();
-    
-    if (!$dbCheck['all_ok']) {
-        // Выводим сообщение и останавливаем выполнение
-        echo '<div style="padding: 20px; margin: 20px; border: 2px solid #d9534f; border-radius: 5px; background: #f2dede; color: #a94442;">
-            <h2><span style="font-size: 24px;">⚠️</span> База данных не установлена!</h2>
-            <p>Отсутствуют таблицы: <strong>FLOORPLAN, FLOORPLAN_POINT, BUILDING</strong></p>';
+    try {
+        $installModel = Model::factory('Floorplan_Installm');
+        $result = $installModel->checkDatabase();
         
-        if ($this->is_admin) {
-            echo '<a href="' . URL::site('floorplan/install') . '" class="btn btn-success" style="display: inline-block; padding: 10px 20px; background: #5cb85c; color: #fff; text-decoration: none; border-radius: 4px;">
-                Установить базу данных
-            </a>';
+        if (!$result['all_ok']) {
+            $this->db_ready = false;
+            
+            // Сохраняем результат проверки в глобальную переменную для представлений
+            View::bind_global('db_check_result', $result);
+            
+            // Для примитивных типов нужно использовать переменную
+            $dbReady = false;
+            View::bind_global('db_ready', $dbReady);
+            
+            // Если страница не является страницей установки, показываем предупреждение
+            $current_action = $this->request->action();
+            $current_controller = $this->request->controller();
+            
+            if ($current_controller !== 'Floorplan_Install' && $current_action !== 'install') {
+                Session::instance()->set('db_error', 'База данных модуля "Планы объекта" не установлена. Требуется установка.');
+                Session::instance()->set('message_type', 'danger');
+            }
         } else {
-            echo '<p>Обратитесь к администратору</p>';
+            $this->db_ready = true;
+            $dbReady = true;
+            View::bind_global('db_ready', $dbReady);
         }
-        
-        echo '</div>';
-        exit;
+    } catch (Exception $e) {
+        // Если модель не найдена или другая ошибка
+        $this->db_ready = false;
+        $dbReady = false;
+        View::bind_global('db_ready', $dbReady);
+        Kohana::$log->add(Log::ERROR, 'Database check error: ' . $e->getMessage());
     }
 }
 
@@ -40,6 +75,13 @@ public function before()
      */
     public function action_index()
     {
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            $content = $this->getDbNotReadyView();
+            $this->template->content = $content;
+            return;
+        }
+        
         $model = Model::factory('Floorplanm');
         $floorplans = $model->getFloorplans();
         $buildings = $model->getBuildings();
@@ -48,6 +90,7 @@ public function before()
             'floorplans' => $floorplans,
             'buildings' => $buildings,
             'is_admin' => $this->is_admin,
+            'db_ready' => $this->db_ready,
         ));
 
         $this->template->content = $content;
@@ -58,6 +101,13 @@ public function before()
      */
     public function action_view()
     {
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            $content = $this->getDbNotReadyView();
+            $this->template->content = $content;
+            return;
+        }
+        
         $id = (int)$this->request->param('id', 0);
         $model = Model::factory('Floorplanm');
 
@@ -79,6 +129,7 @@ public function before()
             'building' => $building,
             'deviceStatuses' => $deviceStatuses,
             'is_admin' => $this->is_admin,
+            'db_ready' => $this->db_ready,
         ));
 
         $this->template->full_width = true;
@@ -90,6 +141,13 @@ public function before()
      */
     public function action_edit()
     {
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            $content = $this->getDbNotReadyView();
+            $this->template->content = $content;
+            return;
+        }
+        
         $id = (int)$this->request->param('id', 0);
         $model = Model::factory('Floorplanm');
 
@@ -101,6 +159,8 @@ public function before()
             $this->redirect('floorplan');
         }
 
+        // ... остальной код метода action_edit ...
+        
         $floorplan = $model->getFloorplanById($id);
         $building = $model->getBuildingById($floorplan['id_building']);
         $floors = $model->getFloorsByBuilding($floorplan['id_building']);
@@ -241,6 +301,7 @@ public function before()
             'mode' => 'edit',
             'current_floor_id' => $currentFloorId,
             'main_floor_id' => $id,
+            'db_ready' => $this->db_ready,
         ));
 
         $this->template->full_width = true;
@@ -257,6 +318,12 @@ public function before()
 
         if (!$this->is_admin) {
             echo json_encode(array('success' => false, 'error' => 'Доступ запрещён'));
+            return;
+        }
+
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
             return;
         }
 
@@ -290,6 +357,12 @@ public function before()
 
         if (!$this->is_admin) {
             echo json_encode(array('success' => false, 'error' => 'Доступ запрещён'));
+            return;
+        }
+
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
             return;
         }
 
@@ -333,6 +406,12 @@ public function before()
             return;
         }
 
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
+            return;
+        }
+
         if ($this->request->method() != HTTP_Request::POST) {
             echo json_encode(array('success' => false, 'error' => 'Invalid request method'));
             return;
@@ -358,6 +437,13 @@ public function before()
     {
         if (!$this->is_admin) {
             $this->redirect('floorplan');
+        }
+
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            $content = $this->getDbNotReadyView();
+            $this->template->content = $content;
+            return;
         }
 
         $model = Model::factory('Floorplanm');
@@ -398,6 +484,7 @@ public function before()
                     'post' => $post,
                     'buildings' => $buildings,
                     'is_admin' => $this->is_admin,
+                    'db_ready' => $this->db_ready,
                 ));
                 $this->template->content = $content;
                 return;
@@ -425,6 +512,7 @@ public function before()
             'post' => array(),
             'buildings' => $buildings,
             'is_admin' => $this->is_admin,
+            'db_ready' => $this->db_ready,
         ));
 
         $this->template->content = $content;
@@ -437,6 +525,13 @@ public function before()
     {
         if (!$this->is_admin) {
             $this->redirect('floorplan');
+        }
+
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            $content = $this->getDbNotReadyView();
+            $this->template->content = $content;
+            return;
         }
 
         $id = (int)$this->request->param('id', 0);
@@ -460,6 +555,13 @@ public function before()
             $this->redirect('floorplan');
         }
 
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            $content = $this->getDbNotReadyView();
+            $this->template->content = $content;
+            return;
+        }
+
         $model = Model::factory('Floorplanm');
         $buildings = $model->getBuildings();
 
@@ -471,6 +573,7 @@ public function before()
         $content = View::factory('floorplan/buildings', array(
             'buildings' => $buildings,
             'is_admin' => $this->is_admin,
+            'db_ready' => $this->db_ready,
         ));
 
         $this->template->content = $content;
@@ -483,6 +586,13 @@ public function before()
     {
         if (!$this->is_admin) {
             $this->redirect('floorplan');
+        }
+
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            $content = $this->getDbNotReadyView();
+            $this->template->content = $content;
+            return;
         }
 
         $model = Model::factory('Floorplanm');
@@ -516,6 +626,7 @@ public function before()
                 'errors' => $errors,
                 'post' => $post,
                 'is_admin' => $this->is_admin,
+                'db_ready' => $this->db_ready,
             ));
             $this->template->content = $content;
             return;
@@ -525,6 +636,7 @@ public function before()
             'errors' => array(),
             'post' => array(),
             'is_admin' => $this->is_admin,
+            'db_ready' => $this->db_ready,
         ));
 
         $this->template->content = $content;
@@ -537,6 +649,13 @@ public function before()
     {
         if (!$this->is_admin) {
             $this->redirect('floorplan');
+        }
+
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            $content = $this->getDbNotReadyView();
+            $this->template->content = $content;
+            return;
         }
 
         $id = (int)$this->request->param('id', 0);
@@ -578,6 +697,7 @@ public function before()
                 'errors' => $errors,
                 'post' => $post,
                 'is_admin' => $this->is_admin,
+                'db_ready' => $this->db_ready,
             ));
             $this->template->content = $content;
             return;
@@ -588,6 +708,7 @@ public function before()
             'errors' => array(),
             'post' => array(),
             'is_admin' => $this->is_admin,
+            'db_ready' => $this->db_ready,
         ));
 
         $this->template->content = $content;
@@ -600,6 +721,13 @@ public function before()
     {
         if (!$this->is_admin) {
             $this->redirect('floorplan');
+        }
+
+        // Проверяем готовность БД
+        if (!$this->db_ready) {
+            $content = $this->getDbNotReadyView();
+            $this->template->content = $content;
+            return;
         }
 
         $id = (int)$this->request->param('id', 0);
@@ -617,6 +745,45 @@ public function before()
         }
 
         $this->redirect('floorplan/buildings');
+    }
+
+    /**
+     * Получение представления для страницы с ошибкой "БД не установлена"
+     */
+    private function getDbNotReadyView()
+    {
+        $message = Session::instance()->get_once('db_error', 'База данных модуля "Планы объекта" не установлена. Перейдите в раздел установки.');
+        $message_type = Session::instance()->get_once('message_type', 'danger');
+        
+        $content = '<div class="panel panel-danger">
+            <div class="panel-heading">
+                <h3 class="panel-title">
+                    <span class="glyphicon glyphicon-warning-sign"></span> 
+                    Ошибка: База данных не установлена
+                </h3>
+            </div>
+            <div class="panel-body">
+                <div class="alert alert-danger">
+                    <span class="glyphicon glyphicon-exclamation-sign"></span>
+                    <strong>' . $message . '</strong>
+                </div>
+                <p>Для работы модуля "Планы объекта" необходимо установить следующие таблицы:</p>
+                <ul>
+                    <li><code>BUILDING</code> - таблица зданий</li>
+                    <li><code>FLOORPLAN</code> - таблица планов</li>
+                    <li><code>FLOORPLAN_POINT</code> - таблица точек на планах</li>
+                </ul>
+                <p>Также необходимы соответствующие генераторы и триггеры.</p>
+                <a href="' . URL::site('floorplan/install') . '" class="btn btn-primary">
+                    <span class="glyphicon glyphicon-database"></span> Перейти к установке
+                </a>
+                <a href="' . URL::site('floorplan') . '" class="btn btn-default">
+                    <span class="glyphicon glyphicon-arrow-left"></span> Назад
+                </a>
+            </div>
+        </div>';
+        
+        return $content;
     }
 
     /**
