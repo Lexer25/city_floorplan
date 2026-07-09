@@ -3,7 +3,7 @@
 class Controller_Floorplan extends Controller_Template
 {
     public $template = 'template';
-    private $db_ready = true;
+    protected $db_ready = false; // Сделаем свойство класса
 						
  
 					 
@@ -42,11 +42,11 @@ private function checkDatabaseTables()
             $this->db_ready = false;
             
             // Сохраняем результат проверки в глобальную переменную для представлений
-            View::bind_global('db_check_result', $result);
+            View::bind_global('db_check_result', $this->db_ready);
             
             // Для примитивных типов нужно использовать переменную
             $dbReady = false;
-            View::bind_global('db_ready', $dbReady);
+            View::bind_global('db_ready', $this->db_ready);
             
             // Если страница не является страницей установки, показываем предупреждение
             $current_action = $this->request->action();
