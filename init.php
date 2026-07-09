@@ -10,18 +10,18 @@ if (Kohana::$config->load('adm')) {
             'url' => 'floorplan',
             'icon' => 'fa-map',
             'order' => 95,
-			'children'=> array(
-            array(
-                'title' => 'Планы объекта',
-                'url' => 'floorplan',
-                'icon' => 'fa-search',
-            ),
-            array(
-                'title' => 'Установка БД планов',
-                'url' => 'floorplan/install',
-                'icon' => 'fa-lock',
-            ),
-        )
+            'children'=> array(
+                array(
+                    'title' => 'Планы объекта',
+                    'url' => 'floorplan',
+                    'icon' => 'fa-search',
+                ),
+                array(
+                    'title' => 'Установка БД планов',
+                    'url' => 'floorplan/install',
+                    'icon' => 'fa-lock',
+                ),
+            )
         ));
 }
 
@@ -109,17 +109,24 @@ Route::set('floorplan_deleteBuilding', 'floorplan/deleteBuilding/<id>', array('i
         'controller' => 'Floorplan',
         'action' => 'deleteBuilding',
     ));
-//проверка таблиц в базе данных и их установка/удаление
-	
- Route::set('ff4', 'floorplan/install(/<action>)')
+
+// ==========================================
+// УСТАНОВКА БАЗЫ ДАННЫХ
+// ==========================================
+
+// Маршрут для страницы установки
+Route::set('floorplan_install', 'floorplan/install(/<action>)')
     ->defaults(array(
         'controller' => 'floorplan_Install',
         'action' => 'index',
-    )); 
-	
-/* 	// Роут для floorplan/install/uninstall
-Route::set('floorplan_install_uninstall', 'floorplan/install/<action>')
+    ));
+
+// ==========================================
+// СКАЧИВАНИЕ SQL-СКРИПТОВ
+// ==========================================
+Route::set('floorplan_downloadSql', 'floorplan/install/downloadSql(/<type>)')
     ->defaults(array(
-        'controller' => 'floorplan_install',
-        'action'     => 'index',
-    )); */
+        'controller' => 'floorplan_Install',
+        'action' => 'downloadSql',
+        'type' => 'install',
+    ));

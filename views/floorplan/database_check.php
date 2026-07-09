@@ -128,29 +128,47 @@
         <!-- Действия -->
         <div class="row" style="margin-top: 15px;">
             <div class="col-md-12">
-                <?php if (!$result['all_ok']): ?>
-                    <a href="<?php echo URL::site('floorplan/install/install'); ?>" 
-                       class="btn btn-success"
-                       onclick="return confirm('Установить все необходимые таблицы, генераторы и триггеры?')">
-                        <span class="glyphicon glyphicon-play"></span> Установить базу данных
-                    </a>
-                <?php endif; ?>
+                <!-- ===== КНОПКА "ПОЛУЧИТЬ SQL" - СКАЧИВАЕТ ФАЙЛ УСТАНОВКИ ===== -->
+                <a href="<?php echo URL::site('floorplan/install/downloadSql/install'); ?>" 
+                   class="btn btn-info"
+                   target="_blank">
+                    <span class="glyphicon glyphicon-download"></span> SQL установить таблицы
+                </a>
                 
-                <?php if ($result['all_ok']): ?>
-                    <button type="button" class="btn btn-danger" 
-                            onclick="if(confirm('Удалить все таблицы модуля? Данные будут потеряны!')) 
-                                     { document.getElementById('uninstallForm').submit(); }">
-                        <span class="glyphicon glyphicon-trash"></span> Удалить базу данных
-                    </button>
-                    
-                    <form id="uninstallForm" method="POST" action="<?php echo URL::site('floorplan/install/uninstall'); ?>">
-                        <?php echo Form::hidden('confirm', 'yes'); ?>
-                    </form>
-                <?php endif; ?>
+                <!-- ===== КНОПКА "SQL УДАЛИТЬ ТАБЛИЦЫ" - СКАЧИВАЕТ ФАЙЛ УДАЛЕНИЯ ===== -->
+                <a href="<?php echo URL::site('floorplan/install/downloadSql/uninstall'); ?>" 
+                   class="btn btn-danger"
+                   target="_blank">
+                    <span class="glyphicon glyphicon-download"></span> SQL удалить таблицы
+                </a>
                 
                 <a href="<?php echo URL::site('floorplan'); ?>" class="btn btn-default">
                     <span class="glyphicon glyphicon-arrow-left"></span> Назад к планам
                 </a>
+            </div>
+        </div>
+
+        <!-- Инструкция для пользователя -->
+        <div class="row" style="margin-top: 15px;">
+            <div class="col-md-12">
+                <div class="alert alert-info">
+                    <span class="glyphicon glyphicon-info-sign"></span>
+                    <strong>Как установить или удалить базу данных:</strong>
+                    <ol style="margin-top: 5px; margin-bottom: 0;">
+                        <li>
+                            <strong>Для установки:</strong> нажмите кнопку 
+                            <span class="label label-info">SQL установить таблицы</span> 
+                            чтобы скачать файл <code>install.sql</code>, затем выполните его в вашем SQL-клиенте
+                        </li>
+                        <li>
+                            <strong>Для удаления:</strong> нажмите кнопку 
+                            <span class="label label-danger">SQL удалить таблицы</span> 
+                            чтобы скачать файл <code>uninstall.sql</code>, затем выполните его в вашем SQL-клиенте
+                            <span class="text-danger">(ВНИМАНИЕ: все данные будут потеряны!)</span>
+                        </li>
+                        <li>После выполнения SQL-скрипта обновите эту страницу для проверки статуса</li>
+                    </ol>
+                </div>
             </div>
         </div>
 
