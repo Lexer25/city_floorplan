@@ -121,7 +121,7 @@ class Controller_Floorplan extends Controller_Template
             'searchIdDev' => $id_dev,  // Передаем ID, который искали
         ));
 
-        $this->template->full_width = true;
+        $this->set_full_width(true);
         $this->template->content = $content;
     }
 
@@ -309,7 +309,7 @@ class Controller_Floorplan extends Controller_Template
             'searchIdDev' => $id_dev,
         ));
 
-        $this->template->full_width = true;
+        $this->set_full_width(true);
         $this->template->content = $content;
     }
 
