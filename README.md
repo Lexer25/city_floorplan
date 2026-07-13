@@ -46,3 +46,5 @@ modules/floorplan/
 │           └── floorplan.css
 ├── init.php
 └── README.md
+
+https://localhost/city/index.php/floorplan/view/1?id_dev=783
