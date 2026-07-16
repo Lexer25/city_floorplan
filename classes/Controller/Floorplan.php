@@ -196,24 +196,31 @@ class Controller_Floorplan extends Controller_Template
                 
                 $image = $currentFloor['image'];
                 
+                // --- ИЗМЕНЕНИЕ: безопасная загрузка изображения ---
                 if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-                    $uploadDir = DOCROOT . 'media/floorplan/';
-                    if (!is_dir($uploadDir)) {
-                        mkdir($uploadDir, 0777, true);
-                    }
-
-                    $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-                    $filename = 'floorplan_' . time() . '.' . $ext;
-                    $targetPath = $uploadDir . $filename;
-
-                    if (move_uploaded_file($_FILES['image']['tmp_name'], $targetPath)) {
-                        if (!empty($currentFloor['image']) && file_exists(DOCROOT . $currentFloor['image'])) {
-                            @unlink(DOCROOT . $currentFloor['image']);
+                    try {
+                        // Загружаем новое изображение через защищенный метод
+                        $newImage = $model->uploadFloorplanImage($_FILES['image']);
+                        
+                        // Удаляем старое изображение, если оно существует
+                        if (!empty($currentFloor['image'])) {
+                            $model->deleteFloorplanImage($currentFloor['image']);
                         }
-                        $image = 'media/floorplan/' . $filename;
-                        $imageInfo = getimagesize($uploadDir . $filename);
-                        $width = $imageInfo[0];
-                        $height = $imageInfo[1];
+                        
+                        $image = $newImage;
+                        
+                        // Получаем размеры нового изображения
+                        $fullPath = DOCROOT . $image;
+                        $imageInfo = getimagesize($fullPath);
+                        if ($imageInfo !== false) {
+                            $width = $imageInfo[0];
+                            $height = $imageInfo[1];
+                        }
+                        
+                    } catch (Exception $e) {
+                        Session::instance()->set('message', 'Ошибка загрузки изображения: ' . $e->getMessage());
+                        Session::instance()->set('message_type', 'danger');
+                        $this->redirect('floorplan/edit/' . $id . '?floor=' . $currentFloorId);
                     }
                 }
 
@@ -279,11 +286,62 @@ class Controller_Floorplan extends Controller_Template
             if ($action == 'delete_floor') {
                 $deleteFloorId = (int)Arr::get($post, 'delete_floor_id', 0);
                 if ($deleteFloorId && $deleteFloorId != $id) {
+                    // Получаем информацию об этаже для удаления изображения
+                    $floorToDelete = $model->getFloorplanById($deleteFloorId);
+                    if ($floorToDelete && !empty($floorToDelete['image'])) {
+                        $model->deleteFloorplanImage($floorToDelete['image']);
+                    }
                     $model->deleteFloorplan($deleteFloorId);
                     Session::instance()->set('message', 'Этаж удален');
                     Session::instance()->set('message_type', 'success');
                 } else {
                     Session::instance()->set('message', 'Нельзя удалить основной этаж');
+                    Session::instance()->set('message_type', 'danger');
+                }
+                $this->redirect('floorplan/edit/' . $id . '?floor=' . $currentFloorId);
+            }
+            
+            if ($action == 'add_floor') {
+                $newFloorNumber = (int)Arr::get($post, 'new_floor_number', 0);
+                $newFloorName = Arr::get($post, 'new_floor_name', '');
+                
+                $image = '';
+                $errors = array();
+                
+                if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
+                    try {
+                        $image = $model->uploadFloorplanImage($_FILES['image']);
+                    } catch (Exception $e) {
+                        $errors['image'] = $e->getMessage();
+                    }
+                } else {
+                    $errors['image'] = 'Изображение обязательно';
+                }
+                
+                if (empty($errors) && $newFloorNumber > 0 && !$model->floorExists($floorplan['id_building'], $newFloorNumber)) {
+                    $fullPath = DOCROOT . $image;
+                    $imageInfo = getimagesize($fullPath);
+                    $width = $imageInfo[0];
+                    $height = $imageInfo[1];
+                    
+                    $newId = $model->addFloorplan(
+                        'Этаж ' . $newFloorNumber,
+                        '',
+                        $image,
+                        $width,
+                        $height,
+                        $floorplan['id_building'],
+                        $newFloorNumber,
+                        $newFloorName ?: $newFloorNumber . ' этаж'
+                    );
+                    
+                    if ($newId) {
+                        Session::instance()->set('message', 'Этаж добавлен успешно');
+                        Session::instance()->set('message_type', 'success');
+                        $this->redirect('floorplan/edit/' . $id . '?floor=' . $newId);
+                    }
+                } else {
+                    Session::instance()->set('message', 'Ошибка при добавлении этажа: ' . implode(', ', $errors));
                     Session::instance()->set('message_type', 'danger');
                 }
                 $this->redirect('floorplan/edit/' . $id . '?floor=' . $currentFloorId);
@@ -350,53 +408,54 @@ class Controller_Floorplan extends Controller_Template
 
         echo json_encode(array('success' => $result));
     }
-/**
- * AJAX: Добавление точки
- */
-public function action_addPointAjax()
-{
-    $this->auto_render = false;
-    header('Content-Type: application/json');
 
-    if (!$this->is_admin) {
-        echo json_encode(array('success' => false, 'error' => 'Доступ запрещён'));
-        return;
+    /**
+     * AJAX: Добавление точки
+     */
+    public function action_addPointAjax()
+    {
+        $this->auto_render = false;
+        header('Content-Type: application/json');
+
+        if (!$this->is_admin) {
+            echo json_encode(array('success' => false, 'error' => 'Доступ запрещён'));
+            return;
+        }
+
+        if (!$this->db_ready) {
+            echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
+            return;
+        }
+
+        if ($this->request->method() != HTTP_Request::POST) {
+            echo json_encode(array('success' => false, 'error' => 'Invalid request method'));
+            return;
+        }
+
+        $post = $this->request->post();
+
+        $floorplanId = isset($post['floorplan_id']) ? (int)$post['floorplan_id'] : 0;
+        $x = isset($post['x']) ? (float)$post['x'] : 0;
+        $y = isset($post['y']) ? (float)$post['y'] : 0;
+        $deviceId = isset($post['device_id']) ? (int)$post['device_id'] : 0;
+        $point_type = isset($post['point_type']) ? trim($post['point_type']) : 'door';
+        $label = isset($post['label']) ? trim($post['label']) : '';
+
+        if ($floorplanId <= 0 || $deviceId <= 0) {
+            echo json_encode(array('success' => false, 'error' => 'Invalid parameters'));
+            return;
+        }
+
+        $model = Model::factory('Floorplanm');
+        $result = $model->addPoint($floorplanId, $x, $y, $deviceId, $point_type, $label);
+
+        if ($result) {
+            echo json_encode(array('success' => true, 'id' => $result));
+        } else {
+            echo json_encode(array('success' => false, 'error' => 'Ошибка при добавлении точки в БД'));
+        }
     }
 
-    if (!$this->db_ready) {
-        echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
-        return;
-    }
-
-    if ($this->request->method() != HTTP_Request::POST) {
-        echo json_encode(array('success' => false, 'error' => 'Invalid request method'));
-        return;
-    }
-
-    // Получаем все данные в массив
-    $post = $this->request->post();
-
-    $floorplanId = isset($post['floorplan_id']) ? (int)$post['floorplan_id'] : 0;
-    $x = isset($post['x']) ? (float)$post['x'] : 0;
-    $y = isset($post['y']) ? (float)$post['y'] : 0;
-    $deviceId = isset($post['device_id']) ? (int)$post['device_id'] : 0;
-    $point_type = isset($post['point_type']) ? trim($post['point_type']) : 'door';
-    $label = isset($post['label']) ? trim($post['label']) : '';
-
-    if ($floorplanId <= 0 || $deviceId <= 0) {
-        echo json_encode(array('success' => false, 'error' => 'Invalid parameters'));
-        return;
-    }
-
-    $model = Model::factory('Floorplanm');
-    $result = $model->addPoint($floorplanId, $x, $y, $deviceId, $point_type, $label);
-
-    if ($result) {
-        echo json_encode(array('success' => true, 'id' => $result));
-    } else {
-        echo json_encode(array('success' => false, 'error' => 'Ошибка при добавлении точки в БД'));
-    }
-}
     /**
      * AJAX: Удаление точки
      */
@@ -461,26 +520,24 @@ public function action_addPointAjax()
             $floorName = Arr::get($post, 'floor_name', '');
 
             $image = '';
+            $errors = array();
+
+            // --- ИЗМЕНЕНИЕ: безопасная загрузка изображения ---
             if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
-                $uploadDir = DOCROOT . 'media/floorplan/';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
+                try {
+                    $image = $model->uploadFloorplanImage($_FILES['image']);
+                } catch (Exception $e) {
+                    $errors['image'] = $e->getMessage();
                 }
-
-                $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-                $filename = 'floorplan_' . time() . '.' . $ext;
-                $targetPath = $uploadDir . $filename;
-
-                if (move_uploaded_file($_FILES['image']['tmp_name'], $targetPath)) {
-                    $image = 'media/floorplan/' . $filename;
-                }
+            } else {
+                $errors['image'] = 'Изображение обязательно';
             }
 
-            if (empty($name) || empty($image)) {
-                $errors = array();
-                if (empty($name)) $errors['name'] = 'Название обязательно';
-                if (empty($image)) $errors['image'] = 'Изображение обязательно';
+            if (empty($name)) {
+                $errors['name'] = 'Название обязательно';
+            }
 
+            if (!empty($errors)) {
                 $content = View::factory('floorplan/add', array(
                     'errors' => $errors,
                     'post' => $post,
@@ -492,12 +549,27 @@ public function action_addPointAjax()
                 return;
             }
 
-            $imageInfo = getimagesize($uploadDir . $filename);
-            $width = $imageInfo[0];
-            $height = $imageInfo[1];
+            // Получаем размеры изображения
+            $fullPath = DOCROOT . $image;
+            $imageInfo = getimagesize($fullPath);
+            if ($imageInfo !== false) {
+                $width = $imageInfo[0];
+                $height = $imageInfo[1];
+            } else {
+                $width = 800;
+                $height = 600;
+            }
 
-            $result = $model->addFloorplan($name, $description, $image, $width, $height, 
-                $buildingId, $floorNumber, $floorName);
+            $result = $model->addFloorplan(
+                $name, 
+                $description, 
+                $image, 
+                $width, 
+                $height, 
+                $buildingId, 
+                $floorNumber, 
+                $floorName
+            );
 
             if ($result) {
                 Session::instance()->set('message', 'План успешно добавлен');
@@ -539,6 +611,12 @@ public function action_addPointAjax()
         $model = Model::factory('Floorplanm');
 
         if ($id && $model->floorplanExists($id)) {
+            // --- ИЗМЕНЕНИЕ: удаляем изображение ---
+            $floorplan = $model->getFloorplanById($id);
+            if ($floorplan && !empty($floorplan['image'])) {
+                $model->deleteFloorplanImage($floorplan['image']);
+            }
+            
             $model->deleteFloorplan($id);
             Session::instance()->set('message', 'План удален');
             Session::instance()->set('message_type', 'success');
@@ -731,6 +809,15 @@ public function action_addPointAjax()
         $model = Model::factory('Floorplanm');
 
         if ($id && $model->buildingExists($id)) {
+            // Получаем все этажи здания для удаления их изображений
+            $floors = $model->getFloorsByBuilding($id);
+            foreach ($floors as $floor) {
+                $floorData = $model->getFloorplanById($floor['id_floorplan']);
+                if ($floorData && !empty($floorData['image'])) {
+                    $model->deleteFloorplanImage($floorData['image']);
+                }
+            }
+            
             $result = $model->deleteBuilding($id);
             if ($result['success']) {
                 Session::instance()->set('message', 'Здание удалено');

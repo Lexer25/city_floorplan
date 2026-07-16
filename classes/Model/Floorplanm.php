@@ -2,11 +2,15 @@
 
 class Model_Floorplanm extends Model
 {
+    // Константы для загрузки файлов
+    const UPLOAD_DIR = 'uploads/floorplan/'; // Путь относительно DOCROOT
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    
     private $db;
     
     public function __construct()
     {
-       
         $this->db = Database::instance('fb');
     }
     
@@ -374,7 +378,7 @@ class Model_Floorplanm extends Model
     }
 
     /**
-     * Добавить точку на план (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+     * Добавить точку на план
      */
     public function addPoint($floorplanId, $x, $y, $deviceId, $point_type = 'door', $label = '')
     {
@@ -589,5 +593,134 @@ class Model_Floorplanm extends Model
             ->as_array();
 
         return $result[0]['MAX_FLOOR'] ?: 0;
+    }
+
+    // ==========================================
+    // МЕТОДЫ ДЛЯ БЕЗОПАСНОЙ ЗАГРУЗКИ ФАЙЛОВ
+    // ==========================================
+
+    /**
+     * Безопасная загрузка изображения плана
+     * @param array $file - массив $_FILES['image']
+     * @return string - путь к сохраненному файлу
+     * @throws Exception
+     */
+    public function uploadFloorplanImage($file)
+    {
+        // 1. Проверяем ошибки загрузки
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            switch ($file['error']) {
+                case UPLOAD_ERR_INI_SIZE:
+                case UPLOAD_ERR_FORM_SIZE:
+                    throw new Exception('Файл слишком большой (максимум ' . (self::MAX_FILE_SIZE / 1024 / 1024) . ' МБ)');
+                case UPLOAD_ERR_PARTIAL:
+                    throw new Exception('Файл был загружен частично');
+                case UPLOAD_ERR_NO_FILE:
+                    throw new Exception('Файл не выбран');
+                default:
+                    throw new Exception('Ошибка загрузки файла');
+            }
+        }
+        
+        // 2. Проверяем размер
+        if ($file['size'] > self::MAX_FILE_SIZE) {
+            throw new Exception('Файл не должен превышать ' . (self::MAX_FILE_SIZE / 1024 / 1024) . ' МБ');
+        }
+        
+        // 3. Проверяем MIME-тип через finfo (надежная проверка)
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            
+            if (!in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
+                throw new Exception('Разрешены только изображения (JPG, PNG, GIF, WebP). Получен тип: ' . $mimeType);
+            }
+        } else {
+            // Fallback: проверяем через getimagesize
+            $imageInfo = @getimagesize($file['tmp_name']);
+            if ($imageInfo === false) {
+                throw new Exception('Файл не является изображением');
+            }
+            
+            $mimeType = $imageInfo['mime'];
+            if (!in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
+                throw new Exception('Разрешены только изображения (JPG, PNG, GIF, WebP). Получен тип: ' . $mimeType);
+            }
+        }
+        
+        // 4. Проверяем, что это действительно изображение (дополнительная проверка)
+        $imageInfo = @getimagesize($file['tmp_name']);
+        if ($imageInfo === false) {
+            throw new Exception('Файл не является корректным изображением');
+        }
+        
+        // 5. Генерируем безопасное имя файла
+        $extension = image_type_to_extension($imageInfo[2]); // .jpg, .png, .gif
+        // Убираем точку в начале, если она есть
+        $extension = ltrim($extension, '.');
+        
+        // Генерируем уникальное имя
+        $filename = uniqid('floorplan_', true) . '.' . $extension;
+        
+        // 6. Проверяем и создаем директорию
+        $uploadPath = DOCROOT . self::UPLOAD_DIR;
+        if (!is_dir($uploadPath)) {
+            if (!mkdir($uploadPath, 0755, true)) {
+                throw new Exception('Не удалось создать директорию для загрузки');
+            }
+        }
+        
+        // 7. Проверяем права на запись
+        if (!is_writable($uploadPath)) {
+            throw new Exception('Нет прав на запись в директорию ' . self::UPLOAD_DIR);
+        }
+        
+        // 8. Сохраняем файл
+        $targetPath = $uploadPath . $filename;
+        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+            throw new Exception('Не удалось сохранить файл');
+        }
+        
+        // 9. Возвращаем путь для сохранения в БД
+        return self::UPLOAD_DIR . $filename;
+    }
+
+    /**
+     * Удаление изображения плана
+     * @param string $imagePath - путь к изображению
+     * @return bool
+     */
+    public function deleteFloorplanImage($imagePath)
+    {
+        if (empty($imagePath)) {
+            return true;
+        }
+        
+        $fullPath = DOCROOT . $imagePath;
+        if (file_exists($fullPath) && is_file($fullPath)) {
+            return unlink($fullPath);
+        }
+        return false;
+    }
+
+    /**
+     * Получить URL изображения для отображения
+     * @param string $imagePath - путь к изображению
+     * @return string
+     */
+    public function getImageUrl($imagePath)
+    {
+        if (empty($imagePath)) {
+            return '';
+        }
+        
+        // Проверяем, что файл существует
+        $fullPath = DOCROOT . $imagePath;
+        if (!file_exists($fullPath) || !is_file($fullPath)) {
+            return '';
+        }
+        
+        return URL::base() . $imagePath;
     }
 }
