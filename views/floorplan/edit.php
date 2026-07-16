@@ -99,6 +99,9 @@ if ($is_admin) {
                     </div>
                     <button type="submit" class="btn btn-primary">Обновить</button>
                     <a href="<?php echo URL::site('floorplan'); ?>" class="btn btn-default">Назад</a>
+                    <button type="button" class="btn btn-info" onclick="printFloorplan()">
+                        <span class="glyphicon glyphicon-print"></span> Печать
+                    </button>
                 </form>
             </div>
         </div>
@@ -211,23 +214,34 @@ if ($is_admin) {
                          style="position: absolute; left: <?php echo $point['x_pos']; ?>%; top: <?php echo $point['y_pos']; ?>%; cursor: grab; transform: translate(-50%, -50%); <?php echo $isHighlighted ? 'z-index: 50;' : ''; ?>">
                         
                         <div class="point-icon" title="<?php echo htmlspecialchars($tooltip); ?>">
+                            <?php 
+                            $iconPath = URL::base() . 'modules/floorplan/media/floorplan/icons/';
+                            $iconSize = $isHighlighted ? 36 : 28;
+                            ?>
                             <?php if ($point['point_type'] == 'reader'): ?>
-                                <span class="glyphicon glyphicon-qrcode text-info" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
+                                <img src="<?php echo $iconPath; ?>reader.svg" 
+                                     style="width: <?php echo $iconSize; ?>px; height: <?php echo $iconSize; ?>px; vertical-align: middle;"
+                                     alt="Считыватель">
                             <?php elseif ($point['point_type'] == 'controller'): ?>
-                                <span class="glyphicon glyphicon-cog text-warning" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
-                           
-						   <?php elseif ($point['point_type'] == 'door'): ?>
-                                <span class="glyphicon glyphicon-<?php echo $status == 'online' ? 'ok-circle text-success' : 'ban-circle text-danger'; ?>" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
+                                <img src="<?php echo $iconPath; ?>controller.svg" 
+                                     style="width: <?php echo $iconSize; ?>px; height: <?php echo $iconSize; ?>px; vertical-align: middle;"
+                                     alt="Контроллер">
+                            <?php elseif ($point['point_type'] == 'door'): ?>
+                                <img src="<?php echo $iconPath; ?>door.svg" 
+                                     style="width: <?php echo $iconSize; ?>px; height: <?php echo $iconSize; ?>px; vertical-align: middle;"
+                                     alt="Дверь">
+                            <?php elseif ($point['point_type'] == 'turnstile'): ?>
+                                <img src="<?php echo $iconPath; ?>turnstile.svg" 
+                                     style="width: <?php echo $iconSize; ?>px; height: <?php echo $iconSize; ?>px; vertical-align: middle;"
+                                     alt="Турникет">
                             <?php else: ?>
-                                <span class="glyphicon glyphicon-record text-muted" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
+                                <span class="glyphicon glyphicon-record text-muted" style="font-size: <?php echo $iconSize; ?>px;"></span>
                             <?php endif; ?>
                             
                             <?php if ($isHighlighted): ?>
                                 <span class="highlight-ring" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; border: 3px solid #ff9800; animation: pulse-ring 1.5s ease-in-out infinite; pointer-events: none;"></span>
                             <?php endif; ?>
                         </div>
-						
-						
                         
                         <?php if ($point['label']): ?>
                             <div class="point-label" style="position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; white-space: nowrap; background: rgba(255,255,255,0.9); padding: 1px 6px; border-radius: 3px; border: 1px solid <?php echo $isHighlighted ? '#ff9800' : '#ddd'; ?>; <?php echo $isHighlighted ? 'font-weight: bold; color: #ff9800;' : ''; ?>">
@@ -250,12 +264,13 @@ if ($is_admin) {
                             <?php endif; ?>
                         <?php endif; ?>
 
-                        <div class="point-actions" style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); display: none; z-index: 20;">
-                           <button class="btn btn-xs btn-danger delete-point" 
-        data-point-id="<?php echo $point['id_point']; ?>"
-        onclick="testDelete(<?php echo $point['id_point']; ?>, this)">
-    <span class="glyphicon glyphicon-trash"></span>
-</button>
+                        <div class="point-actions" style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); display: block; z-index: 20; opacity: 0.5;">
+                            <button class="btn btn-xs btn-danger delete-point" 
+                                    data-point-id="<?php echo $point['id_point']; ?>"
+                                    onclick="deletePoint(<?php echo $point['id_point']; ?>, this)"
+                                    style="opacity: 1;">
+                                <span class="glyphicon glyphicon-trash"></span>
+                            </button>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -330,15 +345,15 @@ if ($is_admin) {
                                                     </span>
                                                 </td>
                                                 <td>
-    <button class="btn btn-xs btn-danger" 
-            onclick="deletePointDirect(<?php echo $point['id_point']; ?>, this)"
-            title="Удалить точку">
-        <span class="glyphicon glyphicon-trash"></span>
-    </button>
-    <?php if ($isHighlighted): ?>
-        <span class="glyphicon glyphicon-flag" style="color: #ff9800; margin-left: 5px;"></span>
-    <?php endif; ?>
-</td>
+                                                    <button class="btn btn-xs btn-danger" 
+                                                            onclick="deletePoint(<?php echo $point['id_point']; ?>, this)"
+                                                            title="Удалить точку">
+                                                        <span class="glyphicon glyphicon-trash"></span>
+                                                    </button>
+                                                    <?php if ($isHighlighted): ?>
+                                                        <span class="glyphicon glyphicon-flag" style="color: #ff9800; margin-left: 5px;"></span>
+                                                    <?php endif; ?>
+                                                </td>
                                             </tr>
                                         <?php endforeach; ?>
                                     <?php else: ?>
@@ -466,6 +481,59 @@ if ($is_admin) {
             </div>
         </div>
 
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- ЭЛЕМЕНТЫ ДЛЯ ПЕЧАТИ                        -->
+<!-- ========================================== -->
+
+<!-- Шапка для печати -->
+<div class="print-header" style="display: none; text-align: center; margin-bottom: 20px; padding: 10px; border-bottom: 2px solid #333;">
+    <div style="font-size: 20px; font-weight: bold; color: #333;">
+        <?php echo isset($building) && $building ? htmlspecialchars($building['name']) : 'План объекта'; ?>
+    </div>
+    <div style="font-size: 14px; color: #666; margin-top: 5px;">
+        План: <?php echo htmlspecialchars($floorplan['name']); ?> 
+        | Этаж: <?php echo htmlspecialchars($current_floor['floor_name'] ?: $current_floor['floor_number'] . ' этаж'); ?>
+        | Дата: <?php echo date('d.m.Y H:i'); ?>
+    </div>
+</div>
+
+<!-- Легенда для печати -->
+<div class="print-legend" style="display: none; margin-top: 20px; padding: 15px; border-top: 2px solid #333; font-size: 13px;">
+    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+        <div style="font-weight: bold; min-width: 120px;">Легенда:</div>
+        <?php
+        $types = array();
+        foreach ($points as $point) {
+            $type = $point['point_type'];
+            $types[$type] = isset($types[$type]) ? $types[$type] + 1 : 1;
+        }
+        $icons = array(
+            'reader' => '📡 Считыватель',
+            'controller' => '⚙️ Контроллер',
+            'door' => '🚪 Дверь',
+            'turnstile' => '🚧 Турникет',
+            'camera' => '📷 Камера',
+        );
+        foreach ($types as $type => $count) {
+            $label = isset($icons[$type]) ? $icons[$type] : $type;
+            echo '<div style="margin-right: 15px;">' . $label . ' — <strong>' . $count . '</strong> шт.</div>';
+        }
+        ?>
+        <div style="margin-left: auto; font-weight: bold;">
+            Всего точек: <strong><?php echo count($points); ?></strong>
+        </div>
+    </div>
+</div>
+
+<!-- Подпись для печати -->
+<div class="print-footer" style="display: none; margin-top: 30px; padding-top: 15px; border-top: 1px solid #ccc; font-size: 13px; text-align: right;">
+    <div style="display: inline-block; width: 200px; text-align: center;">
+        ____________________
+        <br>
+        <span style="font-size: 11px; color: #999;">Подпись ответственного</span>
     </div>
 </div>
 
@@ -740,10 +808,6 @@ window.highlightX = <?php echo $highlightData['x_pos']; ?>;
 window.highlightY = <?php echo $highlightData['y_pos']; ?>;
 <?php endif; ?>
 </script>
-
-<?php include Kohana::find_file('views', 'floorplan/zoom_script'); ?>
-
-
 
 <?php include Kohana::find_file('views', 'floorplan/zoom_script'); ?>
 
@@ -1171,50 +1235,16 @@ $(document).ready(function() {
 // ==========================================
 
 function showDragCoordinates(left, top, $point) {
-    var $tooltip = $('#dragCoordinates');
-    if (!$tooltip.length) {
-        $tooltip = $('<div id="dragCoordinates" style="position: fixed; background: rgba(0,0,0,0.8); color: #fff; padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 9999; pointer-events: none; display: none;"></div>');
-        $('body').append($tooltip);
-    }
-    
-    var parentWidth = $('#floorplanCanvas').width();
-    var parentHeight = $('#floorplanCanvas').height();
-    var xPercent = ((left + $point.outerWidth()/2) / parentWidth) * 100;
-    var yPercent = ((top + $point.outerHeight()/2) / parentHeight) * 100;
-    
-    // Позиционируем подсказку относительно окна, а не canvas
-    var offset = $point.offset();
-    var tooltipX = offset.left + 30;
-    var tooltipY = offset.top - 40;
-    
-    // Проверяем, чтобы подсказка не выходила за пределы окна
-    var tooltipWidth = 200; // примерная ширина
-    var tooltipHeight = 30; // примерная высота
-    
-    if (tooltipX + tooltipWidth > $(window).width()) {
-        tooltipX = $(window).width() - tooltipWidth - 10;
-    }
-    if (tooltipY < 10) {
-        tooltipY = 10;
-    }
-    if (tooltipY + tooltipHeight > $(window).height()) {
-        tooltipY = $(window).height() - tooltipHeight - 10;
-    }
-    
-    $tooltip.html('X: ' + Math.round(xPercent) + '% Y: ' + Math.round(yPercent) + '%')
-        .css({
-            left: tooltipX + 'px',
-            top: tooltipY + 'px',
-            display: 'block'
-        });
+    // Подсказка координат при перетаскивании - отключена, чтобы не мешала
+    // (оставлена пустой для совместимости)
 }
 
 function updateDragCoordinates(left, top, $point) {
-    showDragCoordinates(left, top, $point);
+    // Ничего не делаем
 }
 
 function hideDragCoordinates() {
-    $('#dragCoordinates').hide();
+    // Ничего не делаем
 }
 
 function showPointInfo($point) {
@@ -1500,76 +1530,23 @@ $(document).ready(function() {
 });
 
 // ==========================================
-// ИСПРАВЛЕНИЕ: hover для кнопок удаления на плане
+// ФУНКЦИЯ ПЕЧАТИ
 // ==========================================
 
-$(document).ready(function() {
-    var hoverTimer = null;
-    var $currentPoint = null;
+function printFloorplan() {
+    // Показываем скрытые элементы для печати
+    $('.print-header, .print-legend, .print-footer').show();
     
-    // При наведении на точку - показываем кнопки
-    $('.floorplan-point.draggable').on('mouseenter', function() {
-        var $this = $(this);
-        $currentPoint = $this;
+    // Небольшая задержка для применения стилей
+    setTimeout(function() {
+        window.print();
         
-        // Отменяем предыдущий таймер
-        if (hoverTimer) {
-            clearTimeout(hoverTimer);
-            hoverTimer = null;
-        }
-        
-        // Показываем кнопки
-        $this.find('.point-actions').stop(true, true).fadeIn(200);
-    });
-    
-    // При уходе с точки - скрываем с задержкой
-    $('.floorplan-point.draggable').on('mouseleave', function() {
-        var $this = $(this);
-        
-        // Запускаем таймер на 300мс
-        hoverTimer = setTimeout(function() {
-            // Проверяем, находится ли курсор над кнопками или точкой
-            var $hovered = $(document.elementFromPoint(
-                event.clientX || 0,
-                event.clientY || 0
-            ));
-            
-            // Если курсор не над точкой и не над кнопками - скрываем
-            if (!$hovered.closest('.floorplan-point.draggable, .point-actions').length) {
-                $this.find('.point-actions').stop(true, true).fadeOut(200);
-                hoverTimer = null;
-            }
-        }, 300);
-    });
-    
-    // Если курсор над кнопками - не скрываем
-    $(document).on('mouseenter', '.point-actions', function() {
-        if (hoverTimer) {
-            clearTimeout(hoverTimer);
-            hoverTimer = null;
-        }
-        $(this).stop(true, true).fadeIn(200);
-    });
-    
-    // При уходе с кнопок - скрываем с задержкой
-    $(document).on('mouseleave', '.point-actions', function() {
-        var $this = $(this);
-        var $parent = $this.closest('.floorplan-point.draggable');
-        
+        // Скрываем обратно после печати
         setTimeout(function() {
-            var $hovered = $(document.elementFromPoint(
-                event.clientX || 0,
-                event.clientY || 0
-            ));
-            
-            if (!$hovered.closest('.floorplan-point.draggable').length) {
-                $parent.find('.point-actions').stop(true, true).fadeOut(200);
-            }
-        }, 200);
-    });
-});
-
-
+            $('.print-header, .print-legend, .print-footer').hide();
+        }, 500);
+    }, 300);
+}
 </script>
 
 <!-- ========================================== -->
@@ -1723,7 +1700,9 @@ $(document).ready(function() {
     cursor: grabbing;
 }
 
-
+.floorplan-point.draggable:hover .point-actions {
+    opacity: 1 !important;
+}
 
 .floorplan-point.dragging {
     z-index: 30 !important;
@@ -1754,8 +1733,10 @@ $(document).ready(function() {
 .point-actions {
     display: block !important;
     z-index: 30;
-    opacity: 0.6;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
 }
+
 .point-actions:hover {
     opacity: 1;
 }
@@ -2035,5 +2016,200 @@ tr.success td {
 
 .tab-content {
     padding: 5px 0;
+}
+
+/* ========================================== */
+/* СТИЛИ ДЛЯ ПЕЧАТИ                           */
+/* ========================================== */
+
+@media print {
+    /* Скрываем всё лишнее */
+    .navbar,
+    .navbar-fixed-top,
+    .navbar-default,
+    .floorplan-toolbar,
+    .btn,
+    .btn-group,
+    .panel-heading .btn,
+    #devicePanelWrapper,
+    .point-actions,
+    #clickAddPointDialog,
+    .modal,
+    .modal-backdrop,
+    .floor-selector .btn-group .btn-success,
+    .floor-selector .btn-group .btn-info,
+    .floor-selector .btn-group .btn-danger,
+    form,
+    #saveIndicator,
+    #pointInfo,
+    #dragCoordinates,
+    #notification,
+    #myBtn,
+    .navbar-right,
+    .navbar-text,
+    .print-header .btn,
+    .print-legend .btn,
+    .panel-heading .pull-right .label {
+        display: none !important;
+    }
+
+    /* Показываем элементы для печати */
+    .print-header,
+    .print-legend,
+    .print-footer {
+        display: block !important;
+    }
+
+    /* Убираем отступы */
+    body {
+        margin: 0 !important;
+        padding: 10px !important;
+        background: #fff !important;
+    }
+
+    .container-fluid {
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
+
+    /* Панель */
+    .panel {
+        border: none !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+    }
+
+    .panel-body {
+        padding: 10px 0 !important;
+    }
+
+    /* План на всю страницу */
+    .floorplan-scrollable {
+        overflow: visible !important;
+        border: 1px solid #333 !important;
+        border-radius: 0 !important;
+        max-height: none !important;
+        min-height: auto !important;
+        height: auto !important;
+        background: #fff !important;
+        padding: 5px !important;
+    }
+
+    #floorplanCanvas {
+        transform: scale(1) !important;
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 auto !important;
+    }
+
+    #floorplanCanvas img {
+        width: 100% !important;
+        height: auto !important;
+        display: block !important;
+    }
+
+    /* Точки на плане */
+    .floorplan-point {
+        z-index: 10 !important;
+    }
+
+    .floorplan-point .point-icon img,
+    .floorplan-point .point-icon .glyphicon {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 32px !important;
+        opacity: 1 !important;
+        filter: none !important;
+    }
+
+    .floorplan-point .point-label {
+        font-size: 11px !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 1px solid #666 !important;
+        padding: 1px 6px !important;
+        border-radius: 2px !important;
+        color: #000 !important;
+        font-weight: normal !important;
+        white-space: nowrap !important;
+    }
+
+    /* Скрываем подсветку */
+    .highlight-ring {
+        display: none !important;
+    }
+
+    /* Переключатель этажей - только текст */
+    .floor-selector .btn-group .btn {
+        border: 1px solid #ccc !important;
+        background: #fff !important;
+        color: #000 !important;
+        padding: 2px 8px !important;
+        font-size: 12px !important;
+    }
+
+    .floor-selector .btn-group .btn-primary {
+        background: #333 !important;
+        color: #fff !important;
+        border-color: #333 !important;
+    }
+
+    .floor-selector .btn-group .btn-primary .floor-badge {
+        background: rgba(255,255,255,0.3) !important;
+        color: #fff !important;
+    }
+
+    .floor-selector .btn-group .btn-default .floor-badge {
+        background: #eee !important;
+        color: #333 !important;
+    }
+
+    .floor-selector .btn-group .btn .floor-badge {
+        display: inline-block !important;
+    }
+
+    .floor-selector .pull-right {
+        display: none !important;
+    }
+
+    .panel-heading .pull-right {
+        display: none !important;
+    }
+
+    /* Легенда при печати */
+    .print-legend {
+        border-top: 2px solid #333 !important;
+        padding-top: 10px !important;
+        margin-top: 15px !important;
+        font-size: 12px !important;
+    }
+
+    .print-legend div {
+        display: inline-block !important;
+        margin-right: 20px !important;
+    }
+
+    /* Подпись */
+    .print-footer {
+        margin-top: 30px !important;
+        padding-top: 15px !important;
+        border-top: 1px solid #ccc !important;
+    }
+
+    .print-footer div {
+        display: inline-block !important;
+        width: 200px !important;
+        text-align: center !important;
+    }
+
+    .print-footer .print-footer-line {
+        display: block !important;
+        border-bottom: 1px solid #000 !important;
+        margin-bottom: 5px !important;
+    }
+
+    .print-footer .print-footer-label {
+        font-size: 11px !important;
+        color: #999 !important;
+    }
 }
 </style>

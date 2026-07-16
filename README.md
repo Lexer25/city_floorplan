@@ -27,24 +27,19 @@
 modules/floorplan/
 ├── classes/
 │   ├── Controller/
-│   │   └── Floorplan.php
+│   │   └── Floorplan.php          ← Добавлен поиск
 │   └── Model/
-│       └── Floorplanm.php
+│       └── Floorplanm.php         ← Добавлен findDeviceInAllPlans()
 ├── views/
 │   └── floorplan/
-│       ├── index.php
-│       ├── view.php          (с масштабированием)
-│       ├── edit.php          (с масштабированием)
-│       ├── add.php
-│       ├── zoom_script.php   
-│       ├── buildings.php
-│       ├── add_building.php
-│       └── edit_building.php
+│       └── edit.php               ← Основные изменения
 ├── media/
 │   └── floorplan/
-│       └── css/
-│           └── floorplan.css
-├── init.php
-└── README.md
+│       └── icons/                 ← Новая папка
+│           ├── reader.svg
+│           ├── controller.svg
+│           ├── door.svg
+│           └── turnstile.svg
+└── init.php                       ← Добавлен маршрут поиска
 
 https://localhost/city/index.php/floorplan/view/1?id_dev=783
