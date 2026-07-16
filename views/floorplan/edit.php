@@ -208,34 +208,21 @@ if ($is_admin) {
                         $tooltip .= ' ★ ВЫДЕЛЕНА';
                     }
                 ?>
-                    <div class="floorplan-point <?php echo $statusClass; ?> draggable <?php echo $isHighlighted ? 'highlighted' : ''; ?>" 
+                   <div class="floorplan-point <?php echo $statusClass; ?> draggable <?php echo $isHighlighted ? 'highlighted' : ''; ?>" 
                          data-point-id="<?php echo $point['id_point']; ?>"
                          data-device-id="<?php echo $point['id_dev']; ?>"
                          style="position: absolute; left: <?php echo $point['x_pos']; ?>%; top: <?php echo $point['y_pos']; ?>%; cursor: grab; transform: translate(-50%, -50%); <?php echo $isHighlighted ? 'z-index: 50;' : ''; ?>">
                         
                         <div class="point-icon" title="<?php echo htmlspecialchars($tooltip); ?>">
-                            <?php 
-                            $iconPath = URL::base() . 'modules/floorplan/media/floorplan/icons/';
-                            $iconSize = $isHighlighted ? 36 : 28;
-                            ?>
                             <?php if ($point['point_type'] == 'reader'): ?>
-                                <img src="<?php echo $iconPath; ?>reader.svg" 
-                                     style="width: <?php echo $iconSize; ?>px; height: <?php echo $iconSize; ?>px; vertical-align: middle;"
-                                     alt="Считыватель">
+                                <span class="glyphicon glyphicon-qrcode text-info" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
                             <?php elseif ($point['point_type'] == 'controller'): ?>
-                                <img src="<?php echo $iconPath; ?>controller.svg" 
-                                     style="width: <?php echo $iconSize; ?>px; height: <?php echo $iconSize; ?>px; vertical-align: middle;"
-                                     alt="Контроллер">
-                            <?php elseif ($point['point_type'] == 'door'): ?>
-                                <img src="<?php echo $iconPath; ?>door.svg" 
-                                     style="width: <?php echo $iconSize; ?>px; height: <?php echo $iconSize; ?>px; vertical-align: middle;"
-                                     alt="Дверь">
-                            <?php elseif ($point['point_type'] == 'turnstile'): ?>
-                                <img src="<?php echo $iconPath; ?>turnstile.svg" 
-                                     style="width: <?php echo $iconSize; ?>px; height: <?php echo $iconSize; ?>px; vertical-align: middle;"
-                                     alt="Турникет">
+                                <span class="glyphicon glyphicon-cog text-warning" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
+                           
+						   <?php elseif ($point['point_type'] == 'door'): ?>
+                                <span class="glyphicon glyphicon-<?php echo $status == 'online' ? 'ok-circle text-success' : 'ban-circle text-danger'; ?>" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
                             <?php else: ?>
-                                <span class="glyphicon glyphicon-record text-muted" style="font-size: <?php echo $iconSize; ?>px;"></span>
+                                <span class="glyphicon glyphicon-record text-muted" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
                             <?php endif; ?>
                             
                             <?php if ($isHighlighted): ?>
