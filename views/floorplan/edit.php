@@ -215,7 +215,8 @@ if ($is_admin) {
                                 <span class="glyphicon glyphicon-qrcode text-info" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
                             <?php elseif ($point['point_type'] == 'controller'): ?>
                                 <span class="glyphicon glyphicon-cog text-warning" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
-                            <?php elseif ($point['point_type'] == 'door'): ?>
+                           
+						   <?php elseif ($point['point_type'] == 'door'): ?>
                                 <span class="glyphicon glyphicon-<?php echo $status == 'online' ? 'ok-circle text-success' : 'ban-circle text-danger'; ?>" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
                             <?php else: ?>
                                 <span class="glyphicon glyphicon-record text-muted" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
@@ -225,6 +226,8 @@ if ($is_admin) {
                                 <span class="highlight-ring" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; border: 3px solid #ff9800; animation: pulse-ring 1.5s ease-in-out infinite; pointer-events: none;"></span>
                             <?php endif; ?>
                         </div>
+						
+						
                         
                         <?php if ($point['label']): ?>
                             <div class="point-label" style="position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; white-space: nowrap; background: rgba(255,255,255,0.9); padding: 1px 6px; border-radius: 3px; border: 1px solid <?php echo $isHighlighted ? '#ff9800' : '#ddd'; ?>; <?php echo $isHighlighted ? 'font-weight: bold; color: #ff9800;' : ''; ?>">
