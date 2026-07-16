@@ -174,6 +174,7 @@ if ($is_admin) {
                 <span class="glyphicon glyphicon-hand-up"></span> 
                 Кликните на плане для добавления точки
                 <span id="selectedDeviceDisplay" style="color: #337ab7; margin-left: 10px;"></span>
+                <span id="clickCoords" style="color: #ff9800; margin-left: 10px;"></span>
             </span>
         </div>
 
@@ -348,19 +349,24 @@ if ($is_admin) {
                         </h4>
                     </div>
                     <div class="panel-body">
-                        <form method="POST" action="<?php echo URL::site('floorplan/edit/' . $main_floor_id . '?floor=' . $current_floor_id); ?>" class="form-inline">
+                        <form method="POST" action="<?php echo URL::site('floorplan/edit/' . $main_floor_id . '?floor=' . $current_floor_id); ?>" 
+                              class="form-inline" id="addPointForm">
                             <input type="hidden" name="action" value="add_point">
                             <div class="form-group">
-                                <label>X: </label>
-                                <input type="number" name="x" step="0.1" class="form-control" style="width: 80px;" required>
+                                <label>X (0-100%): </label>
+                                <input type="number" name="x" step="0.1" class="form-control" style="width: 80px;" 
+                                       min="0" max="100" required 
+                                       placeholder="0-100" id="inputX">
                             </div>
                             <div class="form-group">
-                                <label>Y: </label>
-                                <input type="number" name="y" step="0.1" class="form-control" style="width: 80px;" required>
+                                <label>Y (0-100%): </label>
+                                <input type="number" name="y" step="0.1" class="form-control" style="width: 80px;" 
+                                       min="0" max="100" required 
+                                       placeholder="0-100" id="inputY">
                             </div>
                             <div class="form-group">
                                 <label>Устройство (id_dev): </label>
-                                <select name="device_id" class="form-control" style="width: 200px;" required>
+                                <select name="device_id" class="form-control" style="width: 200px;" required id="inputDevice">
                                     <option value="">Выберите устройство</option>
                                     <?php foreach ($availableDevices as $device): ?>
                                         <option value="<?php echo $device['id_dev']; ?>">
@@ -372,17 +378,20 @@ if ($is_admin) {
                             <div class="form-group">
                                 <label>Тип: </label>
                                 <select name="point_type" class="form-control" style="width: 120px;">
-                                    <option value="door">Дверь</option>
-                                    <option value="turnstile">Турникет</option>
-                                    <option value="reader">Считыватель</option>
-                                    <option value="camera">Камера</option>
+                                    <option value="door">🚪 Дверь</option>
+                                    <option value="turnstile">🚧 Турникет</option>
+                                    <option value="reader">📡 Считыватель</option>
+                                    <option value="camera">📷 Камера</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label>Метка: </label>
-                                <input type="text" name="label" class="form-control" style="width: 150px;">
+                                <input type="text" name="label" class="form-control" style="width: 150px;" 
+                                       placeholder="Название точки" maxlength="100" id="inputLabel">
                             </div>
-                            <button type="submit" class="btn btn-success">Добавить</button>
+                            <button type="submit" class="btn btn-success" id="submitPointBtn">
+                                <span class="glyphicon glyphicon-plus"></span> Добавить
+                            </button>
                         </form>
                         <small class="text-muted">Подсказка: X и Y - это процентное положение от левого и верхнего края (0-100)</small>
                     </div>
@@ -393,9 +402,6 @@ if ($is_admin) {
     </div>
 </div>
 
-<!-- ========================================== -->
-<!-- БОКОВАЯ ПАНЕЛЬ С УСТРОЙСТВАМИ              -->
-<!-- ========================================== -->
 <!-- ========================================== -->
 <!-- БОКОВАЯ ПАНЕЛЬ С УСТРОЙСТВАМИ              -->
 <!-- ========================================== -->
@@ -502,7 +508,8 @@ if ($is_admin) {
                     </div>
                     <div class="form-group">
                         <label>Изображение плана этажа *</label>
-                        <input type="file" name="image" class="form-control" required>
+                        <input type="file" name="image" class="form-control" accept="image/*" required>
+                        <small class="text-muted">Максимальный размер: 20 МБ</small>
                     </div>
                     <button type="submit" class="btn btn-success">Добавить</button>
                 </form>
@@ -630,6 +637,9 @@ window.highlightY = <?php echo $highlightData['y_pos']; ?>;
 
 <?php include Kohana::find_file('views', 'floorplan/zoom_script'); ?>
 
+<!-- ========================================== -->
+<!-- ОСНОВНЫЕ СКРИПТЫ                           -->
+<!-- ========================================== -->
 <script>
 $(document).ready(function() {
     FloorplanZoom.init(window.floorplanId);
@@ -703,6 +713,41 @@ $(document).ready(function() {
             saveClickPoint();
         }
     });
+    
+    // ==========================================
+    // ВАЛИДАЦИЯ ФОРМЫ ДОБАВЛЕНИЯ ТОЧКИ
+    // ==========================================
+    $('#addPointForm').on('submit', function(e) {
+        var x = parseFloat($('input[name="x"]').val());
+        var y = parseFloat($('input[name="y"]').val());
+        
+        if (isNaN(x) || x < 0 || x > 100) {
+            e.preventDefault();
+            showNotification('X должен быть от 0 до 100%', 'error');
+            $('input[name="x"]').focus().select();
+            return false;
+        }
+        
+        if (isNaN(y) || y < 0 || y > 100) {
+            e.preventDefault();
+            showNotification('Y должен быть от 0 до 100%', 'error');
+            $('input[name="y"]').focus().select();
+            return false;
+        }
+        
+        var deviceId = $('select[name="device_id"]').val();
+        if (!deviceId) {
+            e.preventDefault();
+            showNotification('Выберите устройство', 'warning');
+            $('select[name="device_id"]').focus();
+            return false;
+        }
+        
+        // Показываем индикатор загрузки
+        var $btn = $('#submitPointBtn');
+        $btn.html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Добавление...')
+            .prop('disabled', true);
+    });
 });
 
 // ==========================================
@@ -714,6 +759,7 @@ var clickX = 0;
 var clickY = 0;
 var selectedDeviceId = null;
 var selectedDeviceName = null;
+var previewPoint = null;
 
 function toggleClickMode() {
     clickModeEnabled = !clickModeEnabled;
@@ -744,6 +790,13 @@ function toggleClickMode() {
         $image.css('cursor', 'default');
         $image.attr('title', '');
         $('#selectedDeviceDisplay').text('');
+        $('#clickCoords').text('');
+        
+        // Удаляем предпросмотр
+        if (previewPoint) {
+            previewPoint.remove();
+            previewPoint = null;
+        }
     }
 }
 
@@ -752,14 +805,6 @@ function toggleClickMode() {
 // ==========================================
 
 var panelVisible = true;
-var panelWidth = 220;
-var panelVisiblePart = 132;
-
-// ==========================================
-// БОКОВАЯ ПАНЕЛЬ УСТРОЙСТВ
-// ==========================================
-
-//var panelVisible = true;
 
 function toggleDevicePanel() {
     panelVisible = !panelVisible;
@@ -767,12 +812,10 @@ function toggleDevicePanel() {
     var $anchorIcon = $('#anchorIcon');
     
     if (panelVisible) {
-        // РАЗВЕРНУТО: панель полностью видна
         $panel.css('transform', 'translateX(0)');
         $anchorIcon.removeClass('glyphicon-chevron-left').addClass('glyphicon-chevron-right');
         $anchorIcon.attr('title', 'Свернуть панель');
     } else {
-        // СВЕРНУТО: панель уезжает вправо (скрывается за якорем)
         $panel.css('transform', 'translateX(100%)');
         $anchorIcon.removeClass('glyphicon-chevron-right').addClass('glyphicon-chevron-left');
         $anchorIcon.attr('title', 'Развернуть панель');
@@ -789,6 +832,9 @@ function selectDevice(el) {
     
     $('#selectedDeviceInfo').text('Выбрано: ' + selectedDeviceName);
     
+    // Обновляем выбор в форме
+    $('#inputDevice').val(selectedDeviceId);
+    
     if (clickModeEnabled) {
         $('#selectedDeviceDisplay').text('Выбрано: ' + selectedDeviceName).css('color', '#337ab7');
     }
@@ -799,41 +845,271 @@ $(document).ready(function() {
     $('#devicePanel').css('transform', 'translateX(0)');
 });
 
-// Клик на изображении в режиме клика
-$(document).ready(function() {
-    $('#floorplanImage').on('click', function(e) {
-        if (!clickModeEnabled) return;
-        
-        if (!selectedDeviceId) {
-            alert('Сначала выберите устройство на боковой панели');
-            return;
-        }
-        
-        var $this = $(this);
-        var offset = $this.offset();
-        var x = e.pageX - offset.left;
-        var y = e.pageY - offset.top;
-        var width = $this.width();
-        var height = $this.height();
-        
-        var xPercent = Math.round((x / width) * 1000) / 10;
-        var yPercent = Math.round((y / height) * 1000) / 10;
-        
-        xPercent = Math.max(0, Math.min(100, xPercent));
-        yPercent = Math.max(0, Math.min(100, yPercent));
-        
-        clickX = xPercent;
-        clickY = yPercent;
-        
-        $('#clickX').val(xPercent + '%');
-        $('#clickY').val(yPercent + '%');
-        $('#clickDeviceId').val(selectedDeviceId);
-        $('#clickLabel').val(selectedDeviceName || '');
-        $('#clickPointType').val('door');
-        
-        $('#clickAddPointDialog').dialog('open');
+// ==========================================
+// ПРЕДВАРИТЕЛЬНЫЙ ПРОСМОТР ПРИ КЛИКЕ
+// ==========================================
+
+$('#floorplanImage').on('mousemove', function(e) {
+    if (!clickModeEnabled) return;
+    if (!selectedDeviceId) {
+        $('#clickCoords').text('Выберите устройство!');
+        return;
+    }
+    
+    var $this = $(this);
+    var offset = $this.offset();
+    var x = e.pageX - offset.left;
+    var y = e.pageY - offset.top;
+    var width = $this.width();
+    var height = $this.height();
+    
+    var xPercent = (x / width) * 100;
+    var yPercent = (y / height) * 100;
+    
+    xPercent = Math.max(0, Math.min(100, xPercent));
+    yPercent = Math.max(0, Math.min(100, yPercent));
+    
+    // Создаем или обновляем предпросмотр
+    if (!previewPoint) {
+        previewPoint = $('<div class="floorplan-point preview" style="position: absolute; transform: translate(-50%, -50%); pointer-events: none; opacity: 0.6; z-index: 100;">' +
+            '<div class="point-icon">' +
+            '<span class="glyphicon glyphicon-plus-sign" style="font-size: 32px; color: #ff9800;"></span>' +
+            '</div>' +
+            '<div class="point-label" style="position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; white-space: nowrap; background: rgba(255,152,0,0.9); color: #fff; padding: 2px 8px; border-radius: 3px;">' +
+            selectedDeviceName + ' (предпросмотр)' +
+            '</div>' +
+            '</div>');
+        $('#floorplanCanvas').append(previewPoint);
+    }
+    
+    previewPoint.css({
+        left: xPercent + '%',
+        top: yPercent + '%'
     });
+    
+    // Обновляем координаты в статусе
+    $('#clickCoords').text('X: ' + Math.round(xPercent) + '% Y: ' + Math.round(yPercent) + '%');
 });
+
+$('#floorplanImage').on('mouseleave', function() {
+    if (previewPoint) {
+        previewPoint.remove();
+        previewPoint = null;
+        $('#clickCoords').text('');
+    }
+});
+
+// ==========================================
+// КЛИК ДЛЯ ДОБАВЛЕНИЯ ТОЧКИ
+// ==========================================
+
+$('#floorplanImage').on('click', function(e) {
+    if (!clickModeEnabled) return;
+    
+    if (!selectedDeviceId) {
+        showNotification('Сначала выберите устройство на боковой панели', 'warning');
+        return;
+    }
+    
+    var $this = $(this);
+    var offset = $this.offset();
+    var x = e.pageX - offset.left;
+    var y = e.pageY - offset.top;
+    var width = $this.width();
+    var height = $this.height();
+    
+    var xPercent = Math.round(((x / width) * 1000) / 10);
+    var yPercent = Math.round(((y / height) * 1000) / 10);
+    
+    xPercent = Math.max(0, Math.min(100, xPercent));
+    yPercent = Math.max(0, Math.min(100, yPercent));
+    
+    clickX = xPercent;
+    clickY = yPercent;
+    
+    // Показываем диалог с предзаполненными координатами
+    $('#clickX').val(xPercent + '%');
+    $('#clickY').val(yPercent + '%');
+    $('#clickDeviceId').val(selectedDeviceId);
+    $('#clickLabel').val(selectedDeviceName || '');
+    $('#clickPointType').val('door');
+    
+    $('#clickAddPointDialog').dialog('open');
+});
+
+// ==========================================
+// ПЕРЕТАСКИВАНИЕ ТОЧЕК
+// ==========================================
+
+$(document).ready(function() {
+    var $points = $('.floorplan-point.draggable');
+    var $container = $('#floorplanCanvas');
+    var isDragging = false;
+
+    if ($points.length > 0 && $container.length > 0) {
+        $points.draggable({
+            containment: $container,
+            cursor: 'grab',
+            handle: '.point-icon',
+            start: function(e, ui) {
+                isDragging = true;
+                $(this).css('z-index', 20);
+                $(this).find('.point-actions').show();
+                $(this).addClass('dragging');
+                showDragCoordinates(ui.position.left, ui.position.top, $(this));
+            },
+            drag: function(e, ui) {
+                updateDragCoordinates(ui.position.left, ui.position.top, $(this));
+            },
+            stop: function(e, ui) {
+                isDragging = false;
+                var $point = $(this);
+                var pointId = $point.data('point-id');
+                var parentWidth = $container.width();
+                var parentHeight = $container.height();
+                
+                // Корректируем позицию с учетом translate(-50%, -50%)
+                var left = ui.position.left;
+                var top = ui.position.top;
+                
+                // Пересчитываем в проценты с учетом размера точки
+                var pointWidth = $point.outerWidth();
+                var pointHeight = $point.outerHeight();
+                
+                var xPercent = ((left + pointWidth/2) / parentWidth) * 100;
+                var yPercent = ((top + pointHeight/2) / parentHeight) * 100;
+                
+                xPercent = Math.max(0, Math.min(100, xPercent));
+                yPercent = Math.max(0, Math.min(100, yPercent));
+                
+                $point.css('left', xPercent + '%');
+                $point.css('top', yPercent + '%');
+                
+                $point.removeClass('dragging');
+                hideDragCoordinates();
+                
+                savePointPosition(pointId, xPercent, yPercent);
+            }
+        });
+
+        $points.hover(
+            function() {
+                if (!isDragging) {
+                    $(this).find('.point-actions').show();
+                    showPointInfo($(this));
+                }
+            },
+            function() {
+                if (!isDragging) {
+                    $(this).find('.point-actions').hide();
+                    hidePointInfo();
+                }
+            }
+        );
+    }
+});
+
+// ==========================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ==========================================
+
+function showDragCoordinates(left, top, $point) {
+    var $tooltip = $('#dragCoordinates');
+    if (!$tooltip.length) {
+        $tooltip = $('<div id="dragCoordinates" style="position: fixed; background: rgba(0,0,0,0.8); color: #fff; padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 9999; pointer-events: none; display: none;"></div>');
+        $('body').append($tooltip);
+    }
+    
+    var parentWidth = $('#floorplanCanvas').width();
+    var parentHeight = $('#floorplanCanvas').height();
+    var xPercent = ((left + $point.outerWidth()/2) / parentWidth) * 100;
+    var yPercent = ((top + $point.outerHeight()/2) / parentHeight) * 100;
+    
+    $tooltip.html('X: ' + Math.round(xPercent) + '% Y: ' + Math.round(yPercent) + '%')
+        .css({
+            left: (left + 20) + 'px',
+            top: (top - 30) + 'px',
+            display: 'block'
+        });
+}
+
+function updateDragCoordinates(left, top, $point) {
+    showDragCoordinates(left, top, $point);
+}
+
+function hideDragCoordinates() {
+    $('#dragCoordinates').hide();
+}
+
+function showPointInfo($point) {
+    var $tooltip = $('#pointInfo');
+    if (!$tooltip.length) {
+        $tooltip = $('<div id="pointInfo" style="position: fixed; background: rgba(0,0,0,0.8); color: #fff; padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 9999; pointer-events: none; display: none;"></div>');
+        $('body').append($tooltip);
+    }
+    
+    var pointId = $point.data('point-id');
+    var deviceId = $point.data('device-id');
+    var label = $point.find('.point-label').text() || 'Без метки';
+    var xPos = parseFloat($point.css('left'));
+    var yPos = parseFloat($point.css('top'));
+    
+    $tooltip.html(
+        'ID: ' + pointId + 
+        ' | Устр: ' + (deviceId || '—') + 
+        ' | X: ' + Math.round(xPos) + '%' + 
+        ' | Y: ' + Math.round(yPos) + '%' +
+        ' | ' + label
+    );
+    
+    var offset = $point.offset();
+    $tooltip.css({
+        left: (offset.left + 30) + 'px',
+        top: (offset.top - 10) + 'px',
+        display: 'block'
+    });
+}
+
+function hidePointInfo() {
+    $('#pointInfo').hide();
+}
+
+function savePointPosition(pointId, x, y) {
+    var $indicator = $('#saveIndicator');
+    if (!$indicator.length) {
+        $indicator = $('<div id="saveIndicator" style="position: fixed; bottom: 20px; right: 20px; background: #5cb85c; color: #fff; padding: 10px 20px; border-radius: 4px; display: none; z-index: 9999;"></div>');
+        $('body').append($indicator);
+    }
+    
+    $indicator.text('Сохранение...').fadeIn(200);
+    
+    var data = {
+        points: [{
+            id: pointId,
+            x: x,
+            y: y
+        }]
+    };
+    
+    $.ajax({
+        url: '<?php echo URL::site("floorplan/savePositions"); ?>',
+        type: 'POST',
+        data: JSON.stringify(data),
+        contentType: 'application/json',
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                $indicator.text('✓ Сохранено!').css('background', '#5cb85c').fadeOut(1000);
+                console.log('Position saved for point ' + pointId);
+            } else {
+                $indicator.text('✗ Ошибка!').css('background', '#d9534f').fadeOut(2000);
+            }
+        },
+        error: function() {
+            $indicator.text('✗ Ошибка сохранения!').css('background', '#d9534f').fadeOut(2000);
+        }
+    });
+}
 
 function saveClickPoint() {
     var deviceId = $('#clickDeviceId').val();
@@ -842,13 +1118,13 @@ function saveClickPoint() {
     var floorplanId = <?php echo $current_floor_id; ?>;
     
     if (!deviceId) {
-        alert('Пожалуйста, выберите устройство');
+        showNotification('Пожалуйста, выберите устройство', 'warning');
         $('#clickDeviceId').focus();
         return;
     }
     
     if (clickX === 0 && clickY === 0) {
-        alert('Ошибка: координаты не заданы');
+        showNotification('Ошибка: координаты не заданы', 'error');
         return;
     }
     
@@ -878,6 +1154,7 @@ function saveClickPoint() {
             
             if (response.success) {
                 dialog.dialog('close');
+                showNotification('Точка успешно добавлена!', 'success');
                 
                 var countText = $('#pointCountLabel').text();
                 var count = parseInt(countText.replace('Точек: ', ''));
@@ -885,9 +1162,11 @@ function saveClickPoint() {
                     $('#pointCountLabel').text('Точек: ' + (count + 1));
                 }
                 
-                location.reload();
+                setTimeout(function() {
+                    location.reload();
+                }, 500);
             } else {
-                alert('Ошибка при добавлении точки: ' + (response.error || 'Неизвестная ошибка'));
+                showNotification('Ошибка при добавлении точки: ' + (response.error || 'Неизвестная ошибка'), 'error');
                 if (buttons && buttons[1]) {
                     buttons[1].text = 'Добавить точку';
                     buttons[1].disabled = false;
@@ -897,7 +1176,7 @@ function saveClickPoint() {
         },
         error: function(xhr, status, error) {
             console.error('AJAX Error:', xhr, status, error);
-            alert('Ошибка при отправке запроса: ' + error);
+            showNotification('Ошибка при отправке запроса: ' + error, 'error');
             
             if (buttons && buttons[1]) {
                 buttons[1].text = 'Добавить точку';
@@ -908,200 +1187,35 @@ function saveClickPoint() {
     });
 }
 
-// Стили для диалога
-$('<style>').text(
-    '.glyphicon-spin {\n' +
-    '    -webkit-animation: spin 1s infinite linear;\n' +
-    '    animation: spin 1s infinite linear;\n' +
-    '}\n' +
-    '@-webkit-keyframes spin {\n' +
-    '    0% { -webkit-transform: rotate(0deg); }\n' +
-    '    100% { -webkit-transform: rotate(359deg); }\n' +
-    '}\n' +
-    '@keyframes spin {\n' +
-    '    0% { transform: rotate(0deg); }\n' +
-    '    100% { transform: rotate(359deg); }\n' +
-    '}\n' +
-    '.click-point-dialog .ui-dialog-titlebar {\n' +
-    '    background: #337ab7;\n' +
-    '    color: #fff;\n' +
-    '    border: none;\n' +
-    '}\n' +
-    '.click-point-dialog .ui-dialog-titlebar-close {\n' +
-    '    color: #fff;\n' +
-    '}\n' +
-    '.click-point-dialog .ui-dialog-buttonpane {\n' +
-    '    padding: 10px 15px;\n' +
-    '    border-top: 1px solid #ddd;\n' +
-    '}\n' +
-    '.click-point-dialog .ui-dialog-buttonpane button {\n' +
-    '    margin: 0 5px;\n' +
-    '}\n' +
-    '.click-point-dialog .ui-dialog-content {\n' +
-    '    padding: 20px;\n' +
-    '}\n' +
-    '.click-point-dialog .form-group {\n' +
-    '    margin-bottom: 15px;\n' +
-    '}\n' +
-    '.click-point-dialog .form-group label {\n' +
-    '    display: block;\n' +
-    '    font-weight: bold;\n' +
-    '    margin-bottom: 5px;\n' +
-    '}\n' +
-    '.click-point-dialog .form-control {\n' +
-    '    display: block;\n' +
-    '    width: 100%;\n' +
-    '    height: 34px;\n' +
-    '    padding: 6px 12px;\n' +
-    '    font-size: 14px;\n' +
-    '    line-height: 1.42857143;\n' +
-    '    color: #555;\n' +
-    '    background-color: #fff;\n' +
-    '    background-image: none;\n' +
-    '    border: 1px solid #ccc;\n' +
-    '    border-radius: 4px;\n' +
-    '    -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075);\n' +
-    '    box-shadow: inset 0 1px 1px rgba(0,0,0,.075);\n' +
-    '    -webkit-transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;\n' +
-    '    transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;\n' +
-    '}\n' +
-    '.click-point-dialog .form-control[readonly] {\n' +
-    '    background-color: #f5f5f5;\n' +
-    '}\n' +
-    '.click-point-dialog .row {\n' +
-    '    margin-right: -15px;\n' +
-    '    margin-left: -15px;\n' +
-    '}\n' +
-    '.click-point-dialog .col-md-6 {\n' +
-    '    position: relative;\n' +
-    '    min-height: 1px;\n' +
-    '    padding-right: 15px;\n' +
-    '    padding-left: 15px;\n' +
-    '    float: left;\n' +
-    '    width: 50%;\n' +
-    '}\n' +
-    '.click-point-dialog .btn {\n' +
-    '    display: inline-block;\n' +
-    '    margin-bottom: 0;\n' +
-    '    font-weight: 400;\n' +
-    '    text-align: center;\n' +
-    '    white-space: nowrap;\n' +
-    '    vertical-align: middle;\n' +
-    '    -ms-touch-action: manipulation;\n' +
-    '    touch-action: manipulation;\n' +
-    '    cursor: pointer;\n' +
-    '    background-image: none;\n' +
-    '    border: 1px solid transparent;\n' +
-    '    padding: 6px 12px;\n' +
-    '    font-size: 14px;\n' +
-    '    line-height: 1.42857143;\n' +
-    '    border-radius: 4px;\n' +
-    '    -webkit-user-select: none;\n' +
-    '    -moz-user-select: none;\n' +
-    '    -ms-user-select: none;\n' +
-    '    user-select: none;\n' +
-    '}\n' +
-    '.click-point-dialog .btn-default {\n' +
-    '    color: #333;\n' +
-    '    background-color: #fff;\n' +
-    '    border-color: #ccc;\n' +
-    '}\n' +
-    '.click-point-dialog .btn-success {\n' +
-    '    color: #fff;\n' +
-    '    background-color: #5cb85c;\n' +
-    '    border-color: #4cae4c;\n' +
-    '}\n' +
-    '.click-point-dialog .btn-success:hover {\n' +
-    '    background-color: #449d44;\n' +
-    '    border-color: #398439;\n' +
-    '}\n' +
-    '.click-point-dialog .btn-success:disabled {\n' +
-    '    opacity: 0.65;\n' +
-    '    cursor: not-allowed;\n' +
-    '}\n' +
-    '.click-point-dialog .text-danger {\n' +
-    '    color: #a94442;\n' +
-    '}\n' +
-    '.click-point-dialog .ui-dialog {\n' +
-    '    z-index: 1000;\n' +
-    '}\n' +
-    '.click-point-dialog .ui-widget-overlay {\n' +
-    '    background: #000;\n' +
-    '    opacity: 0.5;\n' +
-    '    z-index: 999;\n' +
-    '}'
-).appendTo('head');
-</script>
-
-<!-- ========================================== -->
-<!-- JS ДЛЯ ПЕРЕТАСКИВАНИЯ ТОЧЕК                -->
-<!-- ========================================== -->
-<script>
-$(document).ready(function() {
-    var $points = $('.floorplan-point.draggable');
-    var $container = $('#floorplanCanvas');
-
-    if ($points.length > 0 && $container.length > 0) {
-        $points.draggable({
-            containment: $container,
-            cursor: 'grab',
-            handle: '.point-icon',
-            start: function(e, ui) {
-                $(this).find('.point-actions').show();
-                $(this).css('z-index', 20);
-            },
-            stop: function(e, ui) {
-                var $point = $(this);
-                var pointId = $point.data('point-id');
-                var parentWidth = $container.width();
-                var parentHeight = $container.height();
-                var left = ui.position.left;
-                var top = ui.position.top;
-                var xPercent = (left / parentWidth) * 100;
-                var yPercent = (top / parentHeight) * 100;
-                
-                xPercent = Math.max(0, Math.min(100, xPercent));
-                yPercent = Math.max(0, Math.min(100, yPercent));
-                
-                $point.css('left', xPercent + '%');
-                $point.css('top', yPercent + '%');
-                
-                var data = {
-                    points: [{
-                        id: pointId,
-                        x: xPercent,
-                        y: yPercent
-                    }]
-                };
-                
-                $.ajax({
-                    url: '<?php echo URL::site("floorplan/savePositions"); ?>',
-                    type: 'POST',
-                    data: JSON.stringify(data),
-                    contentType: 'application/json',
-                    dataType: 'json',
-                    success: function(response) {
-                        if (response.success) {
-                            console.log('Position saved for point ' + pointId);
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX error:', error);
-                    }
-                });
-            }
-        });
-
-        $points.hover(
-            function() {
-                $(this).find('.point-actions').show();
-            },
-            function() {
-                $(this).find('.point-actions').hide();
-            }
-        );
+function showNotification(message, type) {
+    var $notification = $('#notification');
+    if (!$notification.length) {
+        $notification = $('<div id="notification" style="position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 4px; z-index: 10000; display: none; max-width: 400px;"></div>');
+        $('body').append($notification);
     }
+    
+    var bgColor = '#5cb85c';
+    if (type === 'warning') bgColor = '#f0ad4e';
+    if (type === 'error') bgColor = '#d9534f';
+    if (type === 'info') bgColor = '#5bc0de';
+    
+    $notification.css('background', bgColor)
+        .css('color', '#fff')
+        .html(message)
+        .fadeIn(300);
+    
+    clearTimeout($notification.data('timer'));
+    var timer = setTimeout(function() {
+        $notification.fadeOut(300);
+    }, 3000);
+    $notification.data('timer', timer);
+}
 
+// ==========================================
+// УДАЛЕНИЕ ТОЧЕК
+// ==========================================
+
+$(document).ready(function() {
     $('.delete-point').on('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -1110,6 +1224,7 @@ $(document).ready(function() {
         
         var pointId = $(this).data('point-id');
         var $point = $('.floorplan-point[data-point-id="' + pointId + '"]');
+        var $row = $('tr[data-point-id="' + pointId + '"]');
         
         $.ajax({
             url: '<?php echo URL::site("floorplan/deletePointAjax"); ?>',
@@ -1120,14 +1235,23 @@ $(document).ready(function() {
                 if (response.success) {
                     $point.fadeOut(300, function() {
                         $(this).remove();
-                        location.reload();
                     });
+                    $row.fadeOut(300, function() {
+                        $(this).remove();
+                        // Обновляем счетчик
+                        var countText = $('#pointCountLabel').text();
+                        var count = parseInt(countText.replace('Точек: ', ''));
+                        if (!isNaN(count) && count > 0) {
+                            $('#pointCountLabel').text('Точек: ' + (count - 1));
+                        }
+                    });
+                    showNotification('Точка удалена', 'success');
                 } else {
-                    alert('Ошибка при удалении точки: ' + (response.error || 'Неизвестная ошибка'));
+                    showNotification('Ошибка при удалении точки: ' + (response.error || 'Неизвестная ошибка'), 'error');
                 }
             },
             error: function(xhr, status, error) {
-                alert('Ошибка при удалении точки: ' + error);
+                showNotification('Ошибка при удалении точки: ' + error, 'error');
             }
         });
     });
@@ -1289,6 +1413,32 @@ $(document).ready(function() {
     display: block !important;
 }
 
+.floorplan-point.dragging {
+    z-index: 30 !important;
+    transform: translate(-50%, -50%) scale(1.2) !important;
+    filter: drop-shadow(0 0 20px rgba(51, 122, 183, 0.5));
+    transition: none !important;
+}
+
+.floorplan-point.preview {
+    animation: preview-pulse 1s ease-in-out infinite;
+}
+
+.floorplan-point.preview .point-label {
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+}
+
+@keyframes preview-pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.6;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.1);
+        opacity: 1;
+    }
+}
+
 .point-actions {
     display: none;
     z-index: 30;
@@ -1374,16 +1524,162 @@ tr.success td {
     background: #fff3e0 !important;
 }
 
-@-webkit-keyframes spin {
-    0% { -webkit-transform: rotate(0deg); }
-    100% { -webkit-transform: rotate(359deg); }
+#saveIndicator {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    font-weight: bold;
 }
+
+#pointInfo, #dragCoordinates {
+    font-family: monospace;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    font-size: 11px !important;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+#clickCoords {
+    color: #ff9800;
+    font-weight: bold;
+}
+
+#notification {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    font-weight: 500;
+}
+
+.glyphicon-spin {
+    animation: spin 1s infinite linear;
+}
+
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(359deg); }
 }
-.glyphicon-spin {
-    -webkit-animation: spin 1s infinite linear;
-    animation: spin 1s infinite linear;
+
+.click-point-dialog .ui-dialog-titlebar {
+    background: #337ab7;
+    color: #fff;
+    border: none;
+}
+
+.click-point-dialog .ui-dialog-titlebar-close {
+    color: #fff;
+}
+
+.click-point-dialog .ui-dialog-buttonpane {
+    padding: 10px 15px;
+    border-top: 1px solid #ddd;
+}
+
+.click-point-dialog .ui-dialog-buttonpane button {
+    margin: 0 5px;
+}
+
+.click-point-dialog .ui-dialog-content {
+    padding: 20px;
+}
+
+.click-point-dialog .form-group {
+    margin-bottom: 15px;
+}
+
+.click-point-dialog .form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.click-point-dialog .form-control {
+    display: block;
+    width: 100%;
+    height: 34px;
+    padding: 6px 12px;
+    font-size: 14px;
+    line-height: 1.42857143;
+    color: #555;
+    background-color: #fff;
+    background-image: none;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+    box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+    -webkit-transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+    transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+}
+
+.click-point-dialog .form-control[readonly] {
+    background-color: #f5f5f5;
+}
+
+.click-point-dialog .row {
+    margin-right: -15px;
+    margin-left: -15px;
+}
+
+.click-point-dialog .col-md-6 {
+    position: relative;
+    min-height: 1px;
+    padding-right: 15px;
+    padding-left: 15px;
+    float: left;
+    width: 50%;
+}
+
+.click-point-dialog .btn {
+    display: inline-block;
+    margin-bottom: 0;
+    font-weight: 400;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    -ms-touch-action: manipulation;
+    touch-action: manipulation;
+    cursor: pointer;
+    background-image: none;
+    border: 1px solid transparent;
+    padding: 6px 12px;
+    font-size: 14px;
+    line-height: 1.42857143;
+    border-radius: 4px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.click-point-dialog .btn-default {
+    color: #333;
+    background-color: #fff;
+    border-color: #ccc;
+}
+
+.click-point-dialog .btn-success {
+    color: #fff;
+    background-color: #5cb85c;
+    border-color: #4cae4c;
+}
+
+.click-point-dialog .btn-success:hover {
+    background-color: #449d44;
+    border-color: #398439;
+}
+
+.click-point-dialog .btn-success:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.click-point-dialog .text-danger {
+    color: #a94442;
+}
+
+.click-point-dialog .ui-dialog {
+    z-index: 1000;
+}
+
+.click-point-dialog .ui-widget-overlay {
+    background: #000;
+    opacity: 0.5;
+    z-index: 999;
 }
 </style>
