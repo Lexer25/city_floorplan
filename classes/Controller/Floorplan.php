@@ -44,6 +44,57 @@ class Controller_Floorplan extends Controller_Template
         }
     }
 
+    /**
+     * Поиск устройства по id_dev и перенаправление на нужный план
+     */
+    public function action_findDevice()
+    {
+        $id_dev = $this->request->query('id_dev');
+        
+        if (!$id_dev) {
+            $this->redirect('floorplan');
+        }
+        
+        $id_dev = (int)$id_dev;
+        $model = Model::factory('Floorplanm');
+        
+        $found = $model->findDeviceInAllPlans($id_dev);
+        
+        if ($found) {
+            $this->redirect('floorplan/view/' . $found['id_floorplan'] . '?highlight=' . $found['id_point'] . '&id_dev=' . $id_dev);
+        } else {
+            Session::instance()->set('message', 'Устройство с ID ' . $id_dev . ' не найдено ни на одном плане');
+            Session::instance()->set('message_type', 'warning');
+            $this->redirect('floorplan');
+        }
+    }
+
+    /**
+     * AJAX: Проверка, занято ли устройство
+     */
+    public function action_checkDeviceUsed()
+    {
+        $this->auto_render = false;
+        header('Content-Type: application/json');
+        
+        $deviceId = (int)$this->request->post('device_id');
+        $floorplanId = (int)$this->request->post('floorplan_id', 0);
+        
+        if (!$deviceId) {
+            echo json_encode(array('success' => false, 'error' => 'No device ID'));
+            return;
+        }
+        
+        $model = Model::factory('Floorplanm');
+        $isUsed = $model->isDeviceUsed($deviceId, $floorplanId);
+        
+        echo json_encode(array(
+            'success' => true,
+            'is_used' => $isUsed,
+            'device_id' => $deviceId
+        ));
+    }
+
     public function action_index()
     {
         if (!$this->db_ready) {
@@ -80,6 +131,21 @@ class Controller_Floorplan extends Controller_Template
         $id = (int)$this->request->param('id', 0);
         $model = Model::factory('Floorplanm');
 
+        // Если id не указан, проверяем параметр highlight
+        if (!$id) {
+            $highlight = $this->request->query('highlight');
+            if ($highlight) {
+                // Ищем точку и получаем id_floorplan
+                $sql = "SELECT id_floorplan FROM floorplan_point WHERE id_point = " . intval($highlight);
+                $result = DB::query(Database::SELECT, $sql)
+                    ->execute(Database::instance('fb'))
+                    ->as_array();
+                if (!empty($result)) {
+                    $id = $result[0]['ID_FLOORPLAN'];
+                }
+            }
+        }
+
         if (!$id || !$model->floorplanExists($id)) {
             $this->redirect('floorplan');
         }
@@ -91,16 +157,19 @@ class Controller_Floorplan extends Controller_Template
 
         $deviceStatuses = $this->getDeviceStatuses($points);
 
-        // ==========================================
-        // ПОИСК ТОЧКИ ПО id_dev
-        // ==========================================
-        $id_dev = $this->request->query('id_dev');
+        // Подсветка точки
+        $highlight = $this->request->query('highlight');
         $highlightData = null;
+        $id_dev = $this->request->query('id_dev');
         
-        if ($id_dev !== null && $id_dev !== '') {
-            $id_dev = (int)$id_dev;
-            
-            // Ищем точку с таким id_dev
+        if ($highlight) {
+            foreach ($points as $point) {
+                if ($point['id_point'] == $highlight) {
+                    $highlightData = $point;
+                    break;
+                }
+            }
+        } elseif ($id_dev) {
             foreach ($points as $point) {
                 if ($point['id_dev'] == $id_dev) {
                     $highlightData = $point;
@@ -118,7 +187,7 @@ class Controller_Floorplan extends Controller_Template
             'is_admin' => $this->is_admin,
             'db_ready' => $this->db_ready,
             'highlightData' => $highlightData,
-            'searchIdDev' => $id_dev,  // Передаем ID, который искали
+            'searchIdDev' => $id_dev,
         ));
 
         $this->set_full_width(true);
@@ -166,15 +235,19 @@ class Controller_Floorplan extends Controller_Template
         
         $points = $model->getPointsByFloorplan($currentFloorId);
 
-        // ==========================================
-        // ПОИСК ТОЧКИ ПО id_dev
-        // ==========================================
-        $id_dev = $this->request->query('id_dev');
+        // Подсветка точки
+        $highlight = $this->request->query('highlight');
         $highlightData = null;
+        $id_dev = $this->request->query('id_dev');
         
-        if ($id_dev !== null && $id_dev !== '') {
-            $id_dev = (int)$id_dev;
-            
+        if ($highlight) {
+            foreach ($points as $point) {
+                if ($point['id_point'] == $highlight) {
+                    $highlightData = $point;
+                    break;
+                }
+            }
+        } elseif ($id_dev) {
             foreach ($points as $point) {
                 if ($point['id_dev'] == $id_dev) {
                     $highlightData = $point;
@@ -182,6 +255,11 @@ class Controller_Floorplan extends Controller_Template
                 }
             }
         }
+
+        // Получаем устройства
+        $readers = $model->getAvailableReaders($currentFloorId);
+        $controllers = $model->getAvailableControllers($currentFloorId);
+        $allDevices = $model->getAllDevicesWithStatus($currentFloorId);
 
         // Обработка POST запроса
         if ($this->request->method() == HTTP_Request::POST) {
@@ -196,27 +274,21 @@ class Controller_Floorplan extends Controller_Template
                 
                 $image = $currentFloor['image'];
                 
-                // --- ИЗМЕНЕНИЕ: безопасная загрузка изображения ---
                 if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
                     try {
-                        // Загружаем новое изображение через защищенный метод
                         $newImage = $model->uploadFloorplanImage($_FILES['image']);
                         
-                        // Удаляем старое изображение, если оно существует
                         if (!empty($currentFloor['image'])) {
                             $model->deleteFloorplanImage($currentFloor['image']);
                         }
                         
                         $image = $newImage;
-                        
-                        // Получаем размеры нового изображения
                         $fullPath = DOCROOT . $image;
                         $imageInfo = getimagesize($fullPath);
                         if ($imageInfo !== false) {
                             $width = $imageInfo[0];
                             $height = $imageInfo[1];
                         }
-                        
                     } catch (Exception $e) {
                         Session::instance()->set('message', 'Ошибка загрузки изображения: ' . $e->getMessage());
                         Session::instance()->set('message_type', 'danger');
@@ -240,17 +312,46 @@ class Controller_Floorplan extends Controller_Template
                 $this->redirect('floorplan/edit/' . $id . '?floor=' . $currentFloorId);
             }
 
-            if ($action == 'add_point') {
+            // Добавление считывателя
+            if ($action == 'add_reader') {
                 $x = Arr::get($post, 'x', 0);
                 $y = Arr::get($post, 'y', 0);
                 $deviceId = Arr::get($post, 'device_id', 0);
-                $point_type = Arr::get($post, 'point_type', 'door');
                 $label = Arr::get($post, 'label', '');
-
+                
                 if ($deviceId > 0) {
-                    $model->addPoint($currentFloorId, $x, $y, $deviceId, $point_type, $label);
-                    Session::instance()->set('message', 'Точка добавлена');
-                    Session::instance()->set('message_type', 'success');
+                    if ($model->isDeviceUsed($deviceId, $currentFloorId)) {
+                        Session::instance()->set('message', 'Это устройство уже используется на другом плане');
+                        Session::instance()->set('message_type', 'danger');
+                    } else {
+                        $result = $model->addPoint($currentFloorId, $x, $y, $deviceId, 'reader', $label);
+                        if ($result) {
+                            Session::instance()->set('message', 'Считыватель добавлен');
+                            Session::instance()->set('message_type', 'success');
+                        }
+                    }
+                }
+                $this->redirect('floorplan/edit/' . $id . '?floor=' . $currentFloorId);
+            }
+
+            // Добавление контроллера
+            if ($action == 'add_controller') {
+                $x = Arr::get($post, 'x', 0);
+                $y = Arr::get($post, 'y', 0);
+                $deviceId = Arr::get($post, 'device_id', 0);
+                $label = Arr::get($post, 'label', '');
+                
+                if ($deviceId > 0) {
+                    if ($model->isDeviceUsed($deviceId, $currentFloorId)) {
+                        Session::instance()->set('message', 'Это устройство уже используется на другом плане');
+                        Session::instance()->set('message_type', 'danger');
+                    } else {
+                        $result = $model->addPoint($currentFloorId, $x, $y, $deviceId, 'controller', $label);
+                        if ($result) {
+                            Session::instance()->set('message', 'Контроллер добавлен');
+                            Session::instance()->set('message_type', 'success');
+                        }
+                    }
                 }
                 $this->redirect('floorplan/edit/' . $id . '?floor=' . $currentFloorId);
             }
@@ -286,7 +387,6 @@ class Controller_Floorplan extends Controller_Template
             if ($action == 'delete_floor') {
                 $deleteFloorId = (int)Arr::get($post, 'delete_floor_id', 0);
                 if ($deleteFloorId && $deleteFloorId != $id) {
-                    // Получаем информацию об этаже для удаления изображения
                     $floorToDelete = $model->getFloorplanById($deleteFloorId);
                     if ($floorToDelete && !empty($floorToDelete['image'])) {
                         $model->deleteFloorplanImage($floorToDelete['image']);
@@ -357,7 +457,9 @@ class Controller_Floorplan extends Controller_Template
             'building' => $building,
             'points' => $points,
             'deviceStatuses' => $deviceStatuses,
-            'availableDevices' => $model->getAvailableDevices(),
+            'readers' => $readers,
+            'controllers' => $controllers,
+            'allDevices' => $allDevices,
             'is_admin' => $this->is_admin,
             'mode' => 'edit',
             'current_floor_id' => $currentFloorId,
@@ -403,10 +505,41 @@ class Controller_Floorplan extends Controller_Template
             return;
         }
 
-        $model = Model::factory('Floorplanm');
-        $result = $model->savePointsPositions($points);
+        $validatedPoints = array();
+        foreach ($points as $point) {
+            $id = isset($point['id']) ? (int)$point['id'] : 0;
+            $x = isset($point['x']) ? (float)$point['x'] : 0;
+            $y = isset($point['y']) ? (float)$point['y'] : 0;
+            
+            $x = max(0, min(100, $x));
+            $y = max(0, min(100, $y));
+            
+            if ($id > 0) {
+                $validatedPoints[] = array(
+                    'id' => $id,
+                    'x' => $x,
+                    'y' => $y
+                );
+            }
+        }
+        
+        if (empty($validatedPoints)) {
+            echo json_encode(array('success' => false, 'error' => 'Нет валидных точек'));
+            return;
+        }
 
-        echo json_encode(array('success' => $result));
+        $model = Model::factory('Floorplanm');
+        $result = $model->savePointsPositions($validatedPoints);
+
+        if ($result) {
+            echo json_encode(array(
+                'success' => true, 
+                'message' => 'Сохранено ' . count($validatedPoints) . ' точек',
+                'count' => count($validatedPoints)
+            ));
+        } else {
+            echo json_encode(array('success' => false, 'error' => 'Ошибка при сохранении'));
+        }
     }
 
     /**
@@ -438,7 +571,7 @@ class Controller_Floorplan extends Controller_Template
         $x = isset($post['x']) ? (float)$post['x'] : 0;
         $y = isset($post['y']) ? (float)$post['y'] : 0;
         $deviceId = isset($post['device_id']) ? (int)$post['device_id'] : 0;
-        $point_type = isset($post['point_type']) ? trim($post['point_type']) : 'door';
+        $point_type = isset($post['point_type']) ? trim($post['point_type']) : 'reader';
         $label = isset($post['label']) ? trim($post['label']) : '';
 
         if ($floorplanId <= 0 || $deviceId <= 0) {
@@ -447,6 +580,13 @@ class Controller_Floorplan extends Controller_Template
         }
 
         $model = Model::factory('Floorplanm');
+        
+        // Проверяем, не занято ли устройство
+        if ($model->isDeviceUsed($deviceId, $floorplanId)) {
+            echo json_encode(array('success' => false, 'error' => 'Это устройство уже используется на другом плане'));
+            return;
+        }
+        
         $result = $model->addPoint($floorplanId, $x, $y, $deviceId, $point_type, $label);
 
         if ($result) {
@@ -522,7 +662,6 @@ class Controller_Floorplan extends Controller_Template
             $image = '';
             $errors = array();
 
-            // --- ИЗМЕНЕНИЕ: безопасная загрузка изображения ---
             if (isset($_FILES['image']) && $_FILES['image']['error'] == 0) {
                 try {
                     $image = $model->uploadFloorplanImage($_FILES['image']);
@@ -549,7 +688,6 @@ class Controller_Floorplan extends Controller_Template
                 return;
             }
 
-            // Получаем размеры изображения
             $fullPath = DOCROOT . $image;
             $imageInfo = getimagesize($fullPath);
             if ($imageInfo !== false) {
@@ -611,7 +749,6 @@ class Controller_Floorplan extends Controller_Template
         $model = Model::factory('Floorplanm');
 
         if ($id && $model->floorplanExists($id)) {
-            // --- ИЗМЕНЕНИЕ: удаляем изображение ---
             $floorplan = $model->getFloorplanById($id);
             if ($floorplan && !empty($floorplan['image'])) {
                 $model->deleteFloorplanImage($floorplan['image']);
@@ -809,7 +946,6 @@ class Controller_Floorplan extends Controller_Template
         $model = Model::factory('Floorplanm');
 
         if ($id && $model->buildingExists($id)) {
-            // Получаем все этажи здания для удаления их изображений
             $floors = $model->getFloorsByBuilding($id);
             foreach ($floors as $floor) {
                 $floorData = $model->getFloorplanById($floor['id_floorplan']);

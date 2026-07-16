@@ -2,7 +2,7 @@
 
 defined('FLOORPLAN_VERSION') OR define('FLOORPLAN_VERSION', '1.0.1');
 
-// Добавляем в админ-меню (если используется)
+// Добавляем в админ-меню
 if (Kohana::$config->load('adm')) {
     Kohana::$config->load('adm')
         ->set('floorplan', array(
@@ -26,10 +26,17 @@ if (Kohana::$config->load('adm')) {
 }
 
 // ==========================================
-// ОСНОВНЫЕ МАРШРУТЫ
+// ПОИСК УСТРОЙСТВА
 // ==========================================
+Route::set('floorplan_findDevice', 'floorplan/findDevice')
+    ->defaults(array(
+        'controller' => 'Floorplan',
+        'action' => 'findDevice',
+    ));
 
-// AJAX маршруты
+// ==========================================
+// AJAX МАРШРУТЫ
+// ==========================================
 Route::set('floorplan_savePositions', 'floorplan/savePositions')
     ->defaults(array(
         'controller' => 'Floorplan',
@@ -48,16 +55,15 @@ Route::set('floorplan_deletePointAjax', 'floorplan/deletePointAjax')
         'action' => 'deletePointAjax',
     ));
 
-Route::set('floorplan_saveZoom', 'floorplan/saveZoom')
+Route::set('floorplan_checkDeviceUsed', 'floorplan/checkDeviceUsed')
     ->defaults(array(
         'controller' => 'Floorplan',
-        'action' => 'saveZoom',
+        'action' => 'checkDeviceUsed',
     ));
 
 // ==========================================
 // ОСНОВНЫЕ СТРАНИЦЫ
 // ==========================================
-
 Route::set('floorplan_view', 'floorplan/view/<id>', array('id' => '\d+'))
     ->defaults(array(
         'controller' => 'Floorplan',
@@ -85,7 +91,6 @@ Route::set('floorplan_add', 'floorplan/add')
 // ==========================================
 // УПРАВЛЕНИЕ ЗДАНИЯМИ
 // ==========================================
-
 Route::set('floorplan_buildings', 'floorplan/buildings')
     ->defaults(array(
         'controller' => 'Floorplan',
@@ -113,8 +118,6 @@ Route::set('floorplan_deleteBuilding', 'floorplan/deleteBuilding/<id>', array('i
 // ==========================================
 // УСТАНОВКА БАЗЫ ДАННЫХ
 // ==========================================
-
-// Маршрут для страницы установки
 Route::set('floorplan_install', 'floorplan/install(/<action>)')
     ->defaults(array(
         'controller' => 'floorplan_Install',

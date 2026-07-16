@@ -211,12 +211,14 @@ if ($is_admin) {
                          style="position: absolute; left: <?php echo $point['x_pos']; ?>%; top: <?php echo $point['y_pos']; ?>%; cursor: grab; transform: translate(-50%, -50%); <?php echo $isHighlighted ? 'z-index: 50;' : ''; ?>">
                         
                         <div class="point-icon" title="<?php echo htmlspecialchars($tooltip); ?>">
-                            <?php if ($point['point_type'] == 'door'): ?>
+                            <?php if ($point['point_type'] == 'reader'): ?>
+                                <span class="glyphicon glyphicon-qrcode text-info" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
+                            <?php elseif ($point['point_type'] == 'controller'): ?>
+                                <span class="glyphicon glyphicon-cog text-warning" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
+                            <?php elseif ($point['point_type'] == 'door'): ?>
                                 <span class="glyphicon glyphicon-<?php echo $status == 'online' ? 'ok-circle text-success' : 'ban-circle text-danger'; ?>" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
-                            <?php elseif ($point['point_type'] == 'turnstile'): ?>
-                                <span class="glyphicon glyphicon-<?php echo $status == 'online' ? 'unchecked text-success' : 'remove-circle text-danger'; ?>" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
                             <?php else: ?>
-                                <span class="glyphicon glyphicon-<?php echo $status == 'online' ? 'record text-success' : 'record text-danger'; ?>" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
+                                <span class="glyphicon glyphicon-record text-muted" style="font-size: 28px; <?php echo $isHighlighted ? 'font-size: 36px;' : ''; ?>"></span>
                             <?php endif; ?>
                             
                             <?php if ($isHighlighted): ?>
@@ -246,9 +248,11 @@ if ($is_admin) {
                         <?php endif; ?>
 
                         <div class="point-actions" style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); display: none; z-index: 20;">
-                            <button class="btn btn-xs btn-danger delete-point" data-point-id="<?php echo $point['id_point']; ?>">
-                                <span class="glyphicon glyphicon-trash"></span>
-                            </button>
+                           <button class="btn btn-xs btn-danger delete-point" 
+        data-point-id="<?php echo $point['id_point']; ?>"
+        onclick="testDelete(<?php echo $point['id_point']; ?>, this)">
+    <span class="glyphicon glyphicon-trash"></span>
+</button>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -289,7 +293,17 @@ if ($is_admin) {
                                         ?>
                                             <tr data-point-id="<?php echo $point['id_point']; ?>" <?php echo $isHighlighted ? 'class="success"' : ''; ?>>
                                                 <td><?php echo $point['id_point']; ?></td>
-                                                <td><?php echo $point['point_type']; ?></td>
+                                                <td>
+                                                    <?php if ($point['point_type'] == 'reader'): ?>
+                                                        <span class="label label-info">Считыватель</span>
+                                                    <?php elseif ($point['point_type'] == 'controller'): ?>
+                                                        <span class="label label-warning">Контроллер</span>
+                                                    <?php elseif ($point['point_type'] == 'door'): ?>
+                                                        <span class="label label-default">Дверь</span>
+                                                    <?php else: ?>
+                                                        <span class="label label-default"><?php echo $point['point_type']; ?></span>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <td>
                                                     <?php echo htmlspecialchars($point['device_name'] ?: 'Не привязано'); ?>
                                                 </td>
@@ -313,13 +327,15 @@ if ($is_admin) {
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <button class="btn btn-xs btn-danger delete-point" data-point-id="<?php echo $point['id_point']; ?>">
-                                                        <span class="glyphicon glyphicon-trash"></span>
-                                                    </button>
-                                                    <?php if ($isHighlighted): ?>
-                                                        <span class="glyphicon glyphicon-flag" style="color: #ff9800; margin-left: 5px;"></span>
-                                                    <?php endif; ?>
-                                                </td>
+    <button class="btn btn-xs btn-danger" 
+            onclick="deletePointDirect(<?php echo $point['id_point']; ?>, this)"
+            title="Удалить точку">
+        <span class="glyphicon glyphicon-trash"></span>
+    </button>
+    <?php if ($isHighlighted): ?>
+        <span class="glyphicon glyphicon-flag" style="color: #ff9800; margin-left: 5px;"></span>
+    <?php endif; ?>
+</td>
                                             </tr>
                                         <?php endforeach; ?>
                                     <?php else: ?>
@@ -336,64 +352,112 @@ if ($is_admin) {
         </div>
 
         <!-- ========================================== -->
-        <!-- ФОРМА ДОБАВЛЕНИЯ ТОЧКИ (обычная)           -->
+        <!-- ФОРМА ДОБАВЛЕНИЯ СЧИТЫВАТЕЛЯ               -->
         <!-- ========================================== -->
         <div class="row" style="margin-top: 15px;">
             <div class="col-md-12">
-                <div class="panel panel-success">
+                <div class="panel panel-info">
                     <div class="panel-heading">
                         <h4 class="panel-title">
-                            <span class="glyphicon glyphicon-plus"></span> 
-                            Добавить точку прохода
-                            <small class="text-muted">(или используйте режим клика на плане)</small>
+                            <span class="glyphicon glyphicon-qrcode"></span> 
+                            Добавить считыватель
+                            <small class="text-muted">(устройства с id_reader)</small>
                         </h4>
                     </div>
                     <div class="panel-body">
                         <form method="POST" action="<?php echo URL::site('floorplan/edit/' . $main_floor_id . '?floor=' . $current_floor_id); ?>" 
-                              class="form-inline" id="addPointForm">
-                            <input type="hidden" name="action" value="add_point">
+                              class="form-inline" id="addReaderForm">
+                            <input type="hidden" name="action" value="add_reader">
                             <div class="form-group">
                                 <label>X (0-100%): </label>
                                 <input type="number" name="x" step="0.1" class="form-control" style="width: 80px;" 
-                                       min="0" max="100" required 
-                                       placeholder="0-100" id="inputX">
+                                       min="0" max="100" required placeholder="0-100" id="readerX">
                             </div>
                             <div class="form-group">
                                 <label>Y (0-100%): </label>
                                 <input type="number" name="y" step="0.1" class="form-control" style="width: 80px;" 
-                                       min="0" max="100" required 
-                                       placeholder="0-100" id="inputY">
+                                       min="0" max="100" required placeholder="0-100" id="readerY">
                             </div>
                             <div class="form-group">
-                                <label>Устройство (id_dev): </label>
-                                <select name="device_id" class="form-control" style="width: 200px;" required id="inputDevice">
-                                    <option value="">Выберите устройство</option>
-                                    <?php foreach ($availableDevices as $device): ?>
+                                <label>Устройство: </label>
+                                <select name="device_id" class="form-control" style="width: 200px;" required id="readerDevice">
+                                    <option value="">Выберите считыватель</option>
+                                    <?php foreach ($readers as $device): ?>
                                         <option value="<?php echo $device['id_dev']; ?>">
                                             <?php echo htmlspecialchars($device['name']); ?> (id_dev=<?php echo $device['id_dev']; ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Тип: </label>
-                                <select name="point_type" class="form-control" style="width: 120px;">
-                                    <option value="door">🚪 Дверь</option>
-                                    <option value="turnstile">🚧 Турникет</option>
-                                    <option value="reader">📡 Считыватель</option>
-                                    <option value="camera">📷 Камера</option>
-                                </select>
+                                <?php if (empty($readers)): ?>
+                                    <small class="text-warning">Нет доступных считывателей</small>
+                                <?php endif; ?>
                             </div>
                             <div class="form-group">
                                 <label>Метка: </label>
                                 <input type="text" name="label" class="form-control" style="width: 150px;" 
-                                       placeholder="Название точки" maxlength="100" id="inputLabel">
+                                       placeholder="Название" maxlength="100" id="readerLabel">
                             </div>
-                            <button type="submit" class="btn btn-success" id="submitPointBtn">
+                            <button type="submit" class="btn btn-info" id="submitReaderBtn" <?php echo empty($readers) ? 'disabled' : ''; ?>>
                                 <span class="glyphicon glyphicon-plus"></span> Добавить
                             </button>
                         </form>
-                        <small class="text-muted">Подсказка: X и Y - это процентное положение от левого и верхнего края (0-100)</small>
+                        <small class="text-muted">X и Y - процентное положение от левого и верхнего края (0-100)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- ФОРМА ДОБАВЛЕНИЯ КОНТРОЛЛЕРА              -->
+        <!-- ========================================== -->
+        <div class="row" style="margin-top: 15px;">
+            <div class="col-md-12">
+                <div class="panel panel-warning">
+                    <div class="panel-heading">
+                        <h4 class="panel-title">
+                            <span class="glyphicon glyphicon-cog"></span> 
+                            Добавить контроллер
+                            <small class="text-muted">(устройства без id_reader)</small>
+                        </h4>
+                    </div>
+                    <div class="panel-body">
+                        <form method="POST" action="<?php echo URL::site('floorplan/edit/' . $main_floor_id . '?floor=' . $current_floor_id); ?>" 
+                              class="form-inline" id="addControllerForm">
+                            <input type="hidden" name="action" value="add_controller">
+                            <div class="form-group">
+                                <label>X (0-100%): </label>
+                                <input type="number" name="x" step="0.1" class="form-control" style="width: 80px;" 
+                                       min="0" max="100" required placeholder="0-100" id="controllerX">
+                            </div>
+                            <div class="form-group">
+                                <label>Y (0-100%): </label>
+                                <input type="number" name="y" step="0.1" class="form-control" style="width: 80px;" 
+                                       min="0" max="100" required placeholder="0-100" id="controllerY">
+                            </div>
+                            <div class="form-group">
+                                <label>Устройство: </label>
+                                <select name="device_id" class="form-control" style="width: 200px;" required id="controllerDevice">
+                                    <option value="">Выберите контроллер</option>
+                                    <?php foreach ($controllers as $device): ?>
+                                        <option value="<?php echo $device['id_dev']; ?>">
+                                            <?php echo htmlspecialchars($device['name']); ?> (id_dev=<?php echo $device['id_dev']; ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?php if (empty($controllers)): ?>
+                                    <small class="text-warning">Нет доступных контроллеров</small>
+                                <?php endif; ?>
+                            </div>
+                            <div class="form-group">
+                                <label>Метка: </label>
+                                <input type="text" name="label" class="form-control" style="width: 150px;" 
+                                       placeholder="Название" maxlength="100" id="controllerLabel">
+                            </div>
+                            <button type="submit" class="btn btn-warning" id="submitControllerBtn" <?php echo empty($controllers) ? 'disabled' : ''; ?>>
+                                <span class="glyphicon glyphicon-plus"></span> Добавить
+                            </button>
+                        </form>
+                        <small class="text-muted">X и Y - процентное положение от левого и верхнего края (0-100)</small>
                     </div>
                 </div>
             </div>
@@ -407,10 +471,9 @@ if ($is_admin) {
 <!-- ========================================== -->
 <div id="devicePanelWrapper" style="position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 100; display: flex; align-items: center;">
     
-    <!-- Кнопка-якорь (всегда видна справа) -->
     <div id="panelAnchor" onclick="toggleDevicePanel()" style="
         width: 32px;
-        height: 60px;
+        height: 80px;
         background: #337ab7;
         border-radius: 4px 0 0 4px;
         cursor: pointer;
@@ -427,9 +490,8 @@ if ($is_admin) {
         <span id="anchorIcon" class="glyphicon glyphicon-chevron-right" style="font-size: 14px;"></span>
     </div>
     
-    <!-- Сама панель -->
     <div id="devicePanel" style="
-        width: 220px;
+        width: 280px;
         background: #fff;
         border: 1px solid #ddd;
         border-right: none;
@@ -442,40 +504,80 @@ if ($is_admin) {
         transform: translateX(0);
         margin-right: -1px;
     ">
-        <!-- Заголовок -->
         <div style="background: #337ab7; color: #fff; padding: 8px 12px; border-radius: 4px 0 0 0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
             <strong style="font-size: 13px;">
                 <span class="glyphicon glyphicon-list"></span> Устройства
             </strong>
             <span style="font-size: 11px; opacity: 0.7;">
-                <?php echo count($availableDevices); ?> устройств
+                Всего: <?php echo count($readers) + count($controllers); ?>
             </span>
         </div>
         
-        <!-- Список устройств -->
-        <div id="deviceList" style="overflow-y: auto; padding: 5px; flex: 1;">
-            <?php if (!empty($availableDevices)): ?>
-                <?php foreach ($availableDevices as $device): ?>
-                    <div class="device-item" 
-                         data-device-id="<?php echo $device['id_dev']; ?>"
-                         data-device-name="<?php echo htmlspecialchars($device['name']); ?>"
-                         style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: pointer; border-left: 3px solid #337ab7; font-size: 12px; transition: all 0.2s ease;"
-                         onclick="selectDevice(this)"
-                         onmouseover="this.style.background='#e8f0fe'"
-                         onmouseout="if (!this.classList.contains('selected')) this.style.background='#f9f9f9'">
-                        <?php echo htmlspecialchars($device['name']); ?>
-                        <span style="color: #999; font-size: 10px;">(id=<?php echo $device['id_dev']; ?>)</span>
+        <!-- Вкладки -->
+        <ul class="nav nav-tabs" style="padding: 0 5px; flex-shrink: 0;">
+            <li class="active" style="width: 50%; text-align: center;">
+                <a href="#tabReaders" data-toggle="tab" style="padding: 6px 10px; font-size: 12px;">
+                    <span class="glyphicon glyphicon-qrcode"></span> Считыватели (<?php echo count($readers); ?>)
+                </a>
+            </li>
+            <li style="width: 50%; text-align: center;">
+                <a href="#tabControllers" data-toggle="tab" style="padding: 6px 10px; font-size: 12px;">
+                    <span class="glyphicon glyphicon-cog"></span> Контроллеры (<?php echo count($controllers); ?>)
+                </a>
+            </li>
+        </ul>
+        
+        <!-- Содержимое вкладок -->
+        <div class="tab-content" style="flex: 1; overflow: hidden; padding: 5px;">
+            <!-- Считыватели -->
+            <div class="tab-pane active" id="tabReaders" style="height: 100%; overflow-y: auto; padding: 5px;">
+                <?php if (!empty($readers)): ?>
+                    <?php foreach ($readers as $device): ?>
+                        <div class="device-item reader-item" 
+                             data-device-id="<?php echo $device['id_dev']; ?>"
+                             data-device-name="<?php echo htmlspecialchars($device['name']); ?>"
+                             style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: pointer; border-left: 3px solid #5bc0de; font-size: 12px; transition: all 0.2s ease;"
+                             onclick="selectDevice(this, 'reader')"
+                             onmouseover="this.style.background='#e8f0fe'"
+                             onmouseout="if (!this.classList.contains('selected')) this.style.background='#f9f9f9'">
+                            <span class="glyphicon glyphicon-qrcode text-info" style="margin-right: 5px;"></span>
+                            <?php echo htmlspecialchars($device['name']); ?>
+                            <span style="color: #999; font-size: 10px;">(id=<?php echo $device['id_dev']; ?>)</span>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div style="padding: 15px; text-align: center; color: #999; font-size: 12px;">
+                        <span class="glyphicon glyphicon-info-sign"></span><br>
+                        Нет доступных считывателей
                     </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <div style="padding: 15px; text-align: center; color: #999; font-size: 12px;">
-                    <span class="glyphicon glyphicon-info-sign"></span><br>
-                    Нет доступных устройств
-                </div>
-            <?php endif; ?>
+                <?php endif; ?>
+            </div>
+            
+            <!-- Контроллеры -->
+            <div class="tab-pane" id="tabControllers" style="height: 100%; overflow-y: auto; padding: 5px;">
+                <?php if (!empty($controllers)): ?>
+                    <?php foreach ($controllers as $device): ?>
+                        <div class="device-item controller-item" 
+                             data-device-id="<?php echo $device['id_dev']; ?>"
+                             data-device-name="<?php echo htmlspecialchars($device['name']); ?>"
+                             style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: pointer; border-left: 3px solid #f0ad4e; font-size: 12px; transition: all 0.2s ease;"
+                             onclick="selectDevice(this, 'controller')"
+                             onmouseover="this.style.background='#fff3e0'"
+                             onmouseout="if (!this.classList.contains('selected')) this.style.background='#f9f9f9'">
+                            <span class="glyphicon glyphicon-cog text-warning" style="margin-right: 5px;"></span>
+                            <?php echo htmlspecialchars($device['name']); ?>
+                            <span style="color: #999; font-size: 10px;">(id=<?php echo $device['id_dev']; ?>)</span>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div style="padding: 15px; text-align: center; color: #999; font-size: 12px;">
+                        <span class="glyphicon glyphicon-info-sign"></span><br>
+                        Нет доступных контроллеров
+                    </div>
+                <?php endif; ?>
+            </div>
         </div>
         
-        <!-- Футер -->
         <div id="devicePanelFooter" style="padding: 5px 10px; background: #f5f5f5; border-top: 1px solid #ddd; font-size: 11px; color: #999; flex-shrink: 0;">
             <span id="selectedDeviceInfo">Выберите устройство для добавления</span>
         </div>
@@ -594,9 +696,12 @@ if ($is_admin) {
             <label>Устройство <span class="text-danger">*</span></label>
             <select class="form-control" id="clickDeviceId" required style="width: 100%;">
                 <option value="">Выберите устройство</option>
-                <?php foreach ($availableDevices as $device): ?>
-                    <option value="<?php echo $device['id_dev']; ?>">
+                <?php foreach ($allDevices as $device): ?>
+                    <option value="<?php echo $device['id_dev']; ?>" <?php echo $device['is_used'] ? 'disabled style="color:#999;background:#f5f5f5;"' : ''; ?>>
                         <?php echo htmlspecialchars($device['name']); ?> (id=<?php echo $device['id_dev']; ?>)
+                        <?php if ($device['is_used']): ?>
+                            ✓ (используется)
+                        <?php endif; ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -605,10 +710,8 @@ if ($is_admin) {
         <div class="form-group">
             <label>Тип точки</label>
             <select class="form-control" id="clickPointType" style="width: 100%;">
-                <option value="door">🚪 Дверь</option>
-                <option value="turnstile">🚧 Турникет</option>
                 <option value="reader">📡 Считыватель</option>
-                <option value="camera">📷 Камера</option>
+                <option value="controller">⚙️ Контроллер</option>
             </select>
         </div>
         
@@ -634,6 +737,10 @@ window.highlightX = <?php echo $highlightData['x_pos']; ?>;
 window.highlightY = <?php echo $highlightData['y_pos']; ?>;
 <?php endif; ?>
 </script>
+
+<?php include Kohana::find_file('views', 'floorplan/zoom_script'); ?>
+
+
 
 <?php include Kohana::find_file('views', 'floorplan/zoom_script'); ?>
 
@@ -715,36 +822,69 @@ $(document).ready(function() {
     });
     
     // ==========================================
-    // ВАЛИДАЦИЯ ФОРМЫ ДОБАВЛЕНИЯ ТОЧКИ
+    // ВАЛИДАЦИЯ ФОРМ
     // ==========================================
-    $('#addPointForm').on('submit', function(e) {
+    
+    // Валидация формы добавления считывателя
+    $('#addReaderForm').on('submit', function(e) {
         var x = parseFloat($('input[name="x"]').val());
         var y = parseFloat($('input[name="y"]').val());
         
         if (isNaN(x) || x < 0 || x > 100) {
             e.preventDefault();
             showNotification('X должен быть от 0 до 100%', 'error');
-            $('input[name="x"]').focus().select();
+            $('#readerX').focus().select();
             return false;
         }
         
         if (isNaN(y) || y < 0 || y > 100) {
             e.preventDefault();
             showNotification('Y должен быть от 0 до 100%', 'error');
-            $('input[name="y"]').focus().select();
+            $('#readerY').focus().select();
             return false;
         }
         
-        var deviceId = $('select[name="device_id"]').val();
+        var deviceId = $('#readerDevice').val();
         if (!deviceId) {
             e.preventDefault();
             showNotification('Выберите устройство', 'warning');
-            $('select[name="device_id"]').focus();
+            $('#readerDevice').focus();
             return false;
         }
         
-        // Показываем индикатор загрузки
-        var $btn = $('#submitPointBtn');
+        var $btn = $('#submitReaderBtn');
+        $btn.html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Добавление...')
+            .prop('disabled', true);
+    });
+    
+    // Валидация формы добавления контроллера
+    $('#addControllerForm').on('submit', function(e) {
+        var x = parseFloat($('input[name="x"]').val());
+        var y = parseFloat($('input[name="y"]').val());
+        
+        if (isNaN(x) || x < 0 || x > 100) {
+            e.preventDefault();
+            showNotification('X должен быть от 0 до 100%', 'error');
+            $('#controllerX').focus().select();
+            return false;
+        }
+        
+        if (isNaN(y) || y < 0 || y > 100) {
+            e.preventDefault();
+            showNotification('Y должен быть от 0 до 100%', 'error');
+            $('#controllerY').focus().select();
+            return false;
+        }
+        
+        var deviceId = $('#controllerDevice').val();
+        if (!deviceId) {
+            e.preventDefault();
+            showNotification('Выберите устройство', 'warning');
+            $('#controllerDevice').focus();
+            return false;
+        }
+        
+        var $btn = $('#submitControllerBtn');
         $btn.html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Добавление...')
             .prop('disabled', true);
     });
@@ -759,6 +899,7 @@ var clickX = 0;
 var clickY = 0;
 var selectedDeviceId = null;
 var selectedDeviceName = null;
+var selectedDeviceType = null;
 var previewPoint = null;
 
 function toggleClickMode() {
@@ -778,7 +919,8 @@ function toggleClickMode() {
         $image.attr('title', 'Кликните для добавления точки');
         
         if (selectedDeviceName) {
-            $('#selectedDeviceDisplay').text('Выбрано: ' + selectedDeviceName);
+            var icon = selectedDeviceType === 'reader' ? '📡' : '⚙️';
+            $('#selectedDeviceDisplay').text(icon + ' ' + selectedDeviceName + ' (' + selectedDeviceType + ')');
         } else {
             $('#selectedDeviceDisplay').text(' (выберите устройство на панели)').css('color', '#d9534f');
         }
@@ -792,7 +934,6 @@ function toggleClickMode() {
         $('#selectedDeviceDisplay').text('');
         $('#clickCoords').text('');
         
-        // Удаляем предпросмотр
         if (previewPoint) {
             previewPoint.remove();
             previewPoint = null;
@@ -822,28 +963,44 @@ function toggleDevicePanel() {
     }
 }
 
-function selectDevice(el) {
-    $('.device-item').css('border-left-color', '#337ab7').css('background', '#f9f9f9').removeClass('selected');
+function selectDevice(el, type) {
+    $('.device-item').removeClass('selected').css('border-left-color', function() {
+        if ($(this).hasClass('reader-item')) return '#5bc0de';
+        if ($(this).hasClass('controller-item')) return '#f0ad4e';
+        return '#337ab7';
+    }).css('background', function() {
+        if ($(this).hasClass('reader-item')) return '#f9f9f9';
+        if ($(this).hasClass('controller-item')) return '#f9f9f9';
+        return '#f9f9f9';
+    });
     
-    $(el).css('border-left-color', '#ff9800').css('background', '#fff3e0').addClass('selected');
+    $(el).addClass('selected');
+    if (type === 'reader') {
+        $(el).css('border-left-color', '#ff9800').css('background', '#e8f0fe');
+        selectedDeviceType = 'reader';
+    } else if (type === 'controller') {
+        $(el).css('border-left-color', '#ff9800').css('background', '#fff3e0');
+        selectedDeviceType = 'controller';
+    }
     
     selectedDeviceId = $(el).data('device-id');
     selectedDeviceName = $(el).data('device-name');
     
-    $('#selectedDeviceInfo').text('Выбрано: ' + selectedDeviceName);
+    $('#selectedDeviceInfo').text('Выбрано: ' + selectedDeviceName + ' (' + selectedDeviceType + ')');
     
-    // Обновляем выбор в форме
-    $('#inputDevice').val(selectedDeviceId);
+    if (selectedDeviceType === 'reader') {
+        $('#readerDevice').val(selectedDeviceId);
+        $('#readerLabel').val(selectedDeviceName || '');
+    } else if (selectedDeviceType === 'controller') {
+        $('#controllerDevice').val(selectedDeviceId);
+        $('#controllerLabel').val(selectedDeviceName || '');
+    }
     
     if (clickModeEnabled) {
-        $('#selectedDeviceDisplay').text('Выбрано: ' + selectedDeviceName).css('color', '#337ab7');
+        var icon = selectedDeviceType === 'reader' ? '📡' : '⚙️';
+        $('#selectedDeviceDisplay').text(icon + ' ' + selectedDeviceName + ' (' + selectedDeviceType + ')').css('color', '#337ab7');
     }
 }
-
-// Инициализация при загрузке (панель развернута)
-$(document).ready(function() {
-    $('#devicePanel').css('transform', 'translateX(0)');
-});
 
 // ==========================================
 // ПРЕДВАРИТЕЛЬНЫЙ ПРОСМОТР ПРИ КЛИКЕ
@@ -869,14 +1026,15 @@ $('#floorplanImage').on('mousemove', function(e) {
     xPercent = Math.max(0, Math.min(100, xPercent));
     yPercent = Math.max(0, Math.min(100, yPercent));
     
-    // Создаем или обновляем предпросмотр
     if (!previewPoint) {
+        var icon = selectedDeviceType === 'reader' ? '📡' : '⚙️';
+        var color = selectedDeviceType === 'reader' ? '#5bc0de' : '#f0ad4e';
         previewPoint = $('<div class="floorplan-point preview" style="position: absolute; transform: translate(-50%, -50%); pointer-events: none; opacity: 0.6; z-index: 100;">' +
             '<div class="point-icon">' +
-            '<span class="glyphicon glyphicon-plus-sign" style="font-size: 32px; color: #ff9800;"></span>' +
+            '<span style="font-size: 32px; color: ' + color + ';">' + icon + '</span>' +
             '</div>' +
             '<div class="point-label" style="position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; white-space: nowrap; background: rgba(255,152,0,0.9); color: #fff; padding: 2px 8px; border-radius: 3px;">' +
-            selectedDeviceName + ' (предпросмотр)' +
+            selectedDeviceName + ' (' + selectedDeviceType + ')' +
             '</div>' +
             '</div>');
         $('#floorplanCanvas').append(previewPoint);
@@ -887,7 +1045,6 @@ $('#floorplanImage').on('mousemove', function(e) {
         top: yPercent + '%'
     });
     
-    // Обновляем координаты в статусе
     $('#clickCoords').text('X: ' + Math.round(xPercent) + '% Y: ' + Math.round(yPercent) + '%');
 });
 
@@ -927,12 +1084,11 @@ $('#floorplanImage').on('click', function(e) {
     clickX = xPercent;
     clickY = yPercent;
     
-    // Показываем диалог с предзаполненными координатами
     $('#clickX').val(xPercent + '%');
     $('#clickY').val(yPercent + '%');
     $('#clickDeviceId').val(selectedDeviceId);
     $('#clickLabel').val(selectedDeviceName || '');
-    $('#clickPointType').val('door');
+    $('#clickPointType').val(selectedDeviceType === 'reader' ? 'reader' : 'controller');
     
     $('#clickAddPointDialog').dialog('open');
 });
@@ -968,11 +1124,9 @@ $(document).ready(function() {
                 var parentWidth = $container.width();
                 var parentHeight = $container.height();
                 
-                // Корректируем позицию с учетом translate(-50%, -50%)
                 var left = ui.position.left;
                 var top = ui.position.top;
                 
-                // Пересчитываем в проценты с учетом размера точки
                 var pointWidth = $point.outerWidth();
                 var pointHeight = $point.outerHeight();
                 
@@ -1025,10 +1179,29 @@ function showDragCoordinates(left, top, $point) {
     var xPercent = ((left + $point.outerWidth()/2) / parentWidth) * 100;
     var yPercent = ((top + $point.outerHeight()/2) / parentHeight) * 100;
     
+    // Позиционируем подсказку относительно окна, а не canvas
+    var offset = $point.offset();
+    var tooltipX = offset.left + 30;
+    var tooltipY = offset.top - 40;
+    
+    // Проверяем, чтобы подсказка не выходила за пределы окна
+    var tooltipWidth = 200; // примерная ширина
+    var tooltipHeight = 30; // примерная высота
+    
+    if (tooltipX + tooltipWidth > $(window).width()) {
+        tooltipX = $(window).width() - tooltipWidth - 10;
+    }
+    if (tooltipY < 10) {
+        tooltipY = 10;
+    }
+    if (tooltipY + tooltipHeight > $(window).height()) {
+        tooltipY = $(window).height() - tooltipHeight - 10;
+    }
+    
     $tooltip.html('X: ' + Math.round(xPercent) + '% Y: ' + Math.round(yPercent) + '%')
         .css({
-            left: (left + 20) + 'px',
-            top: (top - 30) + 'px',
+            left: tooltipX + 'px',
+            top: tooltipY + 'px',
             display: 'block'
         });
 }
@@ -1212,50 +1385,188 @@ function showNotification(message, type) {
 }
 
 // ==========================================
-// УДАЛЕНИЕ ТОЧЕК
+// УДАЛЕНИЕ ТОЧЕК - ЕДИНАЯ ФУНКЦИЯ
 // ==========================================
 
-$(document).ready(function() {
-    $('.delete-point').on('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (!confirm('Удалить точку?')) return;
-        
-        var pointId = $(this).data('point-id');
-        var $point = $('.floorplan-point[data-point-id="' + pointId + '"]');
-        var $row = $('tr[data-point-id="' + pointId + '"]');
-        
-        $.ajax({
-            url: '<?php echo URL::site("floorplan/deletePointAjax"); ?>',
-            type: 'POST',
-            data: { point_id: pointId },
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
+function deletePoint(pointId, btn) {
+    console.log('=== УДАЛЕНИЕ ТОЧКИ ===');
+    console.log('ID:', pointId);
+    
+    if (!pointId) {
+        showNotification('Ошибка: ID точки не найден', 'error');
+        return;
+    }
+    
+    if (!confirm('Удалить точку ' + pointId + '?')) return;
+    
+    var $btn = $(btn);
+    var originalHtml = $btn.html();
+    $btn.html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span>')
+        .prop('disabled', true);
+    
+    var $row = $('tr[data-point-id="' + pointId + '"]');
+    var $point = $('.floorplan-point[data-point-id="' + pointId + '"]');
+    
+    $.ajax({
+        url: '<?php echo URL::site("floorplan/deletePointAjax"); ?>',
+        type: 'POST',
+        data: { point_id: pointId },
+        dataType: 'json',
+        success: function(response) {
+            console.log('Ответ сервера:', response);
+            if (response.success) {
+                // Удаляем строку из таблицы
+                if ($row.length) {
+                    $row.fadeOut(300, function() {
+                        $(this).remove();
+                        updatePointCounter();
+                    });
+                } else {
+                    updatePointCounter();
+                }
+                
+                // Удаляем точку с плана
+                if ($point.length) {
                     $point.fadeOut(300, function() {
                         $(this).remove();
                     });
-                    $row.fadeOut(300, function() {
-                        $(this).remove();
-                        // Обновляем счетчик
-                        var countText = $('#pointCountLabel').text();
-                        var count = parseInt(countText.replace('Точек: ', ''));
-                        if (!isNaN(count) && count > 0) {
-                            $('#pointCountLabel').text('Точек: ' + (count - 1));
-                        }
-                    });
-                    showNotification('Точка удалена', 'success');
-                } else {
-                    showNotification('Ошибка при удалении точки: ' + (response.error || 'Неизвестная ошибка'), 'error');
                 }
-            },
-            error: function(xhr, status, error) {
-                showNotification('Ошибка при удалении точки: ' + error, 'error');
+                
+                showNotification('Точка ' + pointId + ' удалена', 'success');
+            } else {
+                showNotification('Ошибка: ' + (response.error || 'Неизвестная ошибка'), 'error');
+                $btn.html(originalHtml).prop('disabled', false);
             }
-        });
+        },
+        error: function(xhr, status, error) {
+            console.error('Ошибка AJAX:', xhr, status, error);
+            showNotification('Ошибка: ' + error, 'error');
+            $btn.html(originalHtml).prop('disabled', false);
+        }
+    });
+}
+
+function updatePointCounter() {
+    var countText = $('#pointCountLabel').text();
+    var count = parseInt(countText.replace('Точек: ', ''));
+    if (!isNaN(count) && count > 0) {
+        $('#pointCountLabel').text('Точек: ' + (count - 1));
+    }
+    
+    var visibleRows = $('#pointsTable tbody tr:visible');
+    if (visibleRows.length === 0) {
+        $('#pointsTable tbody').html(
+            '<tr><td colspan="8" class="text-center text-muted">Нет точек на плане</td></tr>'
+        );
+    }
+}
+
+// ==========================================
+// НАСТРОЙКА ВСЕХ КНОПОК УДАЛЕНИЯ
+// ==========================================
+
+$(document).ready(function() {
+    // Перенастраиваем все кнопки на плане
+    $('.delete-point').each(function() {
+        var pointId = $(this).data('point-id');
+        if (pointId) {
+            $(this).attr('onclick', 'deletePoint(' + pointId + ', this)');
+        }
+    });
+    
+    // Перенастраиваем все кнопки в таблице
+    $('#pointsTable .btn-danger').each(function() {
+        var $row = $(this).closest('tr');
+        var pointId = $row.data('point-id');
+        if (pointId) {
+            $(this).attr('onclick', 'deletePoint(' + pointId + ', this)');
+        }
+    });
+    
+    console.log('✅ Все кнопки удаления настроены!');
+    
+    // На случай, если кнопки добавлены динамически
+    $(document).on('click', '.delete-point', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var pointId = $(this).data('point-id');
+        if (pointId) {
+            deletePoint(pointId, this);
+        }
     });
 });
+
+// ==========================================
+// ИСПРАВЛЕНИЕ: hover для кнопок удаления на плане
+// ==========================================
+
+$(document).ready(function() {
+    var hoverTimer = null;
+    var $currentPoint = null;
+    
+    // При наведении на точку - показываем кнопки
+    $('.floorplan-point.draggable').on('mouseenter', function() {
+        var $this = $(this);
+        $currentPoint = $this;
+        
+        // Отменяем предыдущий таймер
+        if (hoverTimer) {
+            clearTimeout(hoverTimer);
+            hoverTimer = null;
+        }
+        
+        // Показываем кнопки
+        $this.find('.point-actions').stop(true, true).fadeIn(200);
+    });
+    
+    // При уходе с точки - скрываем с задержкой
+    $('.floorplan-point.draggable').on('mouseleave', function() {
+        var $this = $(this);
+        
+        // Запускаем таймер на 300мс
+        hoverTimer = setTimeout(function() {
+            // Проверяем, находится ли курсор над кнопками или точкой
+            var $hovered = $(document.elementFromPoint(
+                event.clientX || 0,
+                event.clientY || 0
+            ));
+            
+            // Если курсор не над точкой и не над кнопками - скрываем
+            if (!$hovered.closest('.floorplan-point.draggable, .point-actions').length) {
+                $this.find('.point-actions').stop(true, true).fadeOut(200);
+                hoverTimer = null;
+            }
+        }, 300);
+    });
+    
+    // Если курсор над кнопками - не скрываем
+    $(document).on('mouseenter', '.point-actions', function() {
+        if (hoverTimer) {
+            clearTimeout(hoverTimer);
+            hoverTimer = null;
+        }
+        $(this).stop(true, true).fadeIn(200);
+    });
+    
+    // При уходе с кнопок - скрываем с задержкой
+    $(document).on('mouseleave', '.point-actions', function() {
+        var $this = $(this);
+        var $parent = $this.closest('.floorplan-point.draggable');
+        
+        setTimeout(function() {
+            var $hovered = $(document.elementFromPoint(
+                event.clientX || 0,
+                event.clientY || 0
+            ));
+            
+            if (!$hovered.closest('.floorplan-point.draggable').length) {
+                $parent.find('.point-actions').stop(true, true).fadeOut(200);
+            }
+        }, 200);
+    });
+});
+
+
 </script>
 
 <!-- ========================================== -->
@@ -1409,9 +1720,7 @@ $(document).ready(function() {
     cursor: grabbing;
 }
 
-.floorplan-point.draggable:hover .point-actions {
-    display: block !important;
-}
+
 
 .floorplan-point.dragging {
     z-index: 30 !important;
@@ -1440,8 +1749,12 @@ $(document).ready(function() {
 }
 
 .point-actions {
-    display: none;
+    display: block !important;
     z-index: 30;
+    opacity: 0.6;
+}
+.point-actions:hover {
+    opacity: 1;
 }
 
 .text-success {
@@ -1454,6 +1767,22 @@ $(document).ready(function() {
 
 .label-default {
     background-color: #777;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+}
+
+.label-info {
+    background-color: #5bc0de;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+}
+
+.label-warning {
+    background-color: #f0ad4e;
     color: #fff;
     padding: 2px 6px;
     border-radius: 3px;
@@ -1498,15 +1827,6 @@ tr.success td {
     background-color: #fff3e0 !important;
 }
 
-.label-warning {
-    background-color: #ff9800;
-    color: #fff;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 9px;
-    margin-left: 5px;
-}
-
 #devicePanel {
     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -1521,6 +1841,14 @@ tr.success td {
 
 .device-item.selected {
     border-left-color: #ff9800 !important;
+    background: #e8f0fe !important;
+}
+
+.device-item.reader-item.selected {
+    background: #e8f0fe !important;
+}
+
+.device-item.controller-item.selected {
     background: #fff3e0 !important;
 }
 
@@ -1681,5 +2009,28 @@ tr.success td {
     background: #000;
     opacity: 0.5;
     z-index: 999;
+}
+
+.nav-tabs {
+    border-bottom: 1px solid #ddd;
+}
+
+.nav-tabs > li {
+    margin-bottom: -1px;
+}
+
+.nav-tabs > li > a {
+    border-radius: 4px 4px 0 0;
+    color: #555;
+}
+
+.nav-tabs > li.active > a {
+    background: #fff;
+    border-bottom-color: transparent;
+    font-weight: bold;
+}
+
+.tab-content {
+    padding: 5px 0;
 }
 </style>

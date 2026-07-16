@@ -3,8 +3,8 @@
 class Model_Floorplanm extends Model
 {
     // Константы для загрузки файлов
-    const UPLOAD_DIR = 'uploads/floorplan/'; // Путь относительно DOCROOT
-    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+    const UPLOAD_DIR = 'uploads/floorplan/';
+    const MAX_FILE_SIZE = 20 * 1024 * 1024;
     const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     
     private $db;
@@ -216,7 +216,6 @@ class Model_Floorplanm extends Model
     public function deleteBuilding($id)
     {
         try {
-            // Проверяем, есть ли этажи у здания
             $checkSql = "SELECT COUNT(*) as cnt FROM floorplan WHERE id_building = " . intval($id);
             $result = DB::query(Database::SELECT, $checkSql)
                 ->execute($this->db)
@@ -270,19 +269,139 @@ class Model_Floorplanm extends Model
     }
 
     /**
-     * Получить устройства для выбора (только с ридером)
+     * Проверить, занято ли устройство на другом плане
      */
-    public function getAvailableDevices()
+    public function isDeviceUsed($deviceId, $floorplanId = 0)
     {
-        $sql = 'SELECT d.id_dev, d.name, d.id_reader
-                FROM device d
-                WHERE d.id_reader IS NOT NULL
-                ORDER BY d.name';
+        $sql = "SELECT COUNT(*) as cnt FROM floorplan_point 
+                WHERE id_dev = " . intval($deviceId);
+        
+        if ($floorplanId > 0) {
+            $sql .= " AND id_floorplan != " . intval($floorplanId);
+        }
+        
+        $result = DB::query(Database::SELECT, $sql)
+            ->execute($this->db)
+            ->as_array();
+        
+        return ($result[0]['CNT'] > 0);
+    }
 
+    /**
+     * Поиск устройства по id_dev во всех планах
+     */
+    public function findDeviceInAllPlans($deviceId)
+    {
+        $sql = "SELECT fp.id_floorplan, fp.name as floorplan_name, 
+                       fp.id_building, fp.floor_number,
+                       fpp.id_point, fpp.x_pos, fpp.y_pos, fpp.point_type, fpp.label,
+                       d.name as device_name
+                FROM floorplan_point fpp
+                JOIN floorplan fp ON fpp.id_floorplan = fp.id_floorplan
+                LEFT JOIN device d ON fpp.id_dev = d.id_dev
+                WHERE fpp.id_dev = " . intval($deviceId);
+        
         $query = DB::query(Database::SELECT, $sql)
             ->execute($this->db)
             ->as_array();
+        
+        if (count($query) > 0) {
+            $result = $this->convertToUtf8($query);
+            return $result[0];
+        }
+        
+        return null;
+    }
 
+    /**
+     * Получить устройства с id_reader (считыватели)
+     */
+    public function getAvailableReaders($floorplanId = 0)
+    {
+        $sql = "SELECT d.id_dev, d.name, d.id_reader
+                FROM device d
+                WHERE d.id_reader IS NOT NULL";
+        
+        $usedDevices = $this->getUsedDeviceIds($floorplanId);
+        if (!empty($usedDevices)) {
+            $sql .= " AND d.id_dev NOT IN (" . implode(',', $usedDevices) . ")";
+        }
+        
+        $sql .= " ORDER BY d.name";
+        
+        $query = DB::query(Database::SELECT, $sql)
+            ->execute($this->db)
+            ->as_array();
+        
+        return $this->convertToUtf8($query);
+    }
+
+    /**
+     * Получить устройства без id_reader (контроллеры)
+     */
+    public function getAvailableControllers($floorplanId = 0)
+    {
+        $sql = "SELECT d.id_dev, d.name, d.id_reader
+                FROM device d
+                WHERE d.id_reader IS NULL";
+        
+        $usedDevices = $this->getUsedDeviceIds($floorplanId);
+        if (!empty($usedDevices)) {
+            $sql .= " AND d.id_dev NOT IN (" . implode(',', $usedDevices) . ")";
+        }
+        
+        $sql .= " ORDER BY d.name";
+        
+        $query = DB::query(Database::SELECT, $sql)
+            ->execute($this->db)
+            ->as_array();
+        
+        return $this->convertToUtf8($query);
+    }
+
+    /**
+     * Получить ID уже использованных устройств
+     */
+    public function getUsedDeviceIds($floorplanId = 0)
+    {
+        $sql = "SELECT DISTINCT id_dev FROM floorplan_point";
+        if ($floorplanId > 0) {
+            $sql .= " WHERE id_floorplan = " . intval($floorplanId);
+        }
+        
+        $query = DB::query(Database::SELECT, $sql)
+            ->execute($this->db)
+            ->as_array();
+        
+        $ids = array();
+        foreach ($query as $row) {
+            if ($row['ID_DEV']) {
+                $ids[] = $row['ID_DEV'];
+            }
+        }
+        
+        return $ids;
+    }
+
+    /**
+     * Получить все устройства с указанием, используются они или нет
+     */
+    public function getAllDevicesWithStatus($floorplanId = 0)
+    {
+        $sql = "SELECT d.id_dev, d.name, d.id_reader,
+                CASE 
+                    WHEN fp.id_point IS NOT NULL THEN 1 
+                    ELSE 0 
+                END as is_used
+                FROM device d
+                LEFT JOIN floorplan_point fp ON fp.id_dev = d.id_dev
+                GROUP BY d.id_dev, d.name, d.id_reader, fp.id_point
+                ORDER BY d.name";
+        
+        $query = DB::query(Database::SELECT, $sql)
+            ->execute($this->db)
+            ->as_array();
+        
         return $this->convertToUtf8($query);
     }
 
@@ -380,10 +499,16 @@ class Model_Floorplanm extends Model
     /**
      * Добавить точку на план
      */
-    public function addPoint($floorplanId, $x, $y, $deviceId, $point_type = 'door', $label = '')
+    public function addPoint($floorplanId, $x, $y, $deviceId, $point_type = 'reader', $label = '')
     {
         try {
-            // Проверяем, существует ли устройство с таким id_dev
+            // Проверяем, не занято ли устройство
+            if ($this->isDeviceUsed($deviceId, $floorplanId)) {
+                Kohana::$log->add(Log::ERROR, 'Device already used: id_dev=' . $deviceId);
+                return false;
+            }
+            
+            // Проверяем, существует ли устройство
             $checkSql = "SELECT COUNT(*) as cnt FROM device WHERE id_dev = " . intval($deviceId);
             $checkResult = DB::query(Database::SELECT, $checkSql)
                 ->execute($this->db)
@@ -405,28 +530,16 @@ class Model_Floorplanm extends Model
                 return false;
             }
             
-            // Экранируем строки
             $labelForDb = iconv('UTF-8', 'Windows-1251//IGNORE', $label);
             $labelForDb = addslashes($labelForDb);
             $point_type_escaped = addslashes($point_type);
-            
-            // Проверяем обязательные поля
-            if ($floorplanId <= 0 || $deviceId <= 0) {
-                Kohana::$log->add(Log::ERROR, 'Invalid parameters: floorplanId=' . $floorplanId . ', deviceId=' . $deviceId);
-                return false;
-            }
 
-            // Формируем SQL-запрос
             $sql = "INSERT INTO floorplan_point (id_floorplan, x_pos, y_pos, id_dev, point_type, label)
                     VALUES (" . intval($floorplanId) . ", " . floatval($x) . ", " . floatval($y) . ", 
                             " . intval($deviceId) . ", '{$point_type_escaped}', '{$labelForDb}')";
             
-            Kohana::$log->add(Log::DEBUG, 'SQL: ' . $sql);
-            
-            // Выполняем запрос
             DB::query(Database::INSERT, $sql)->execute($this->db);
             
-            // Получаем последний ID
             $lastIdResult = DB::query(Database::SELECT, "SELECT MAX(id_point) as last_id FROM floorplan_point")
                 ->execute($this->db)
                 ->as_array();
@@ -438,7 +551,6 @@ class Model_Floorplanm extends Model
             return $lastId;
         } catch (Exception $e) {
             Kohana::$log->add(Log::ERROR, 'Error adding point: ' . $e->getMessage());
-            Kohana::$log->add(Log::ERROR, 'SQL: ' . (isset($sql) ? $sql : ''));
             return false;
         }
     }
@@ -601,13 +713,9 @@ class Model_Floorplanm extends Model
 
     /**
      * Безопасная загрузка изображения плана
-     * @param array $file - массив $_FILES['image']
-     * @return string - путь к сохраненному файлу
-     * @throws Exception
      */
     public function uploadFloorplanImage($file)
     {
-        // 1. Проверяем ошибки загрузки
         if ($file['error'] !== UPLOAD_ERR_OK) {
             switch ($file['error']) {
                 case UPLOAD_ERR_INI_SIZE:
@@ -622,12 +730,10 @@ class Model_Floorplanm extends Model
             }
         }
         
-        // 2. Проверяем размер
         if ($file['size'] > self::MAX_FILE_SIZE) {
             throw new Exception('Файл не должен превышать ' . (self::MAX_FILE_SIZE / 1024 / 1024) . ' МБ');
         }
         
-        // 3. Проверяем MIME-тип через finfo (надежная проверка)
         if (function_exists('finfo_open')) {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mimeType = finfo_file($finfo, $file['tmp_name']);
@@ -637,7 +743,6 @@ class Model_Floorplanm extends Model
                 throw new Exception('Разрешены только изображения (JPG, PNG, GIF, WebP). Получен тип: ' . $mimeType);
             }
         } else {
-            // Fallback: проверяем через getimagesize
             $imageInfo = @getimagesize($file['tmp_name']);
             if ($imageInfo === false) {
                 throw new Exception('Файл не является изображением');
@@ -649,21 +754,14 @@ class Model_Floorplanm extends Model
             }
         }
         
-        // 4. Проверяем, что это действительно изображение (дополнительная проверка)
         $imageInfo = @getimagesize($file['tmp_name']);
         if ($imageInfo === false) {
             throw new Exception('Файл не является корректным изображением');
         }
         
-        // 5. Генерируем безопасное имя файла
-        $extension = image_type_to_extension($imageInfo[2]); // .jpg, .png, .gif
-        // Убираем точку в начале, если она есть
-        $extension = ltrim($extension, '.');
-        
-        // Генерируем уникальное имя
+        $extension = ltrim(image_type_to_extension($imageInfo[2]), '.');
         $filename = uniqid('floorplan_', true) . '.' . $extension;
         
-        // 6. Проверяем и создаем директорию
         $uploadPath = DOCROOT . self::UPLOAD_DIR;
         if (!is_dir($uploadPath)) {
             if (!mkdir($uploadPath, 0755, true)) {
@@ -671,25 +769,20 @@ class Model_Floorplanm extends Model
             }
         }
         
-        // 7. Проверяем права на запись
         if (!is_writable($uploadPath)) {
             throw new Exception('Нет прав на запись в директорию ' . self::UPLOAD_DIR);
         }
         
-        // 8. Сохраняем файл
         $targetPath = $uploadPath . $filename;
         if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
             throw new Exception('Не удалось сохранить файл');
         }
         
-        // 9. Возвращаем путь для сохранения в БД
         return self::UPLOAD_DIR . $filename;
     }
 
     /**
      * Удаление изображения плана
-     * @param string $imagePath - путь к изображению
-     * @return bool
      */
     public function deleteFloorplanImage($imagePath)
     {
@@ -706,8 +799,6 @@ class Model_Floorplanm extends Model
 
     /**
      * Получить URL изображения для отображения
-     * @param string $imagePath - путь к изображению
-     * @return string
      */
     public function getImageUrl($imagePath)
     {
@@ -715,7 +806,6 @@ class Model_Floorplanm extends Model
             return '';
         }
         
-        // Проверяем, что файл существует
         $fullPath = DOCROOT . $imagePath;
         if (!file_exists($fullPath) || !is_file($fullPath)) {
             return '';
