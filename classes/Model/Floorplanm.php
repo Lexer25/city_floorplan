@@ -300,13 +300,14 @@ class Model_Floorplanm extends Model
                 JOIN floorplan fp ON fpp.id_floorplan = fp.id_floorplan
                 LEFT JOIN device d ON fpp.id_dev = d.id_dev
                 WHERE fpp.id_dev = " . intval($deviceId);
-        
+ echo Debug::vars('303');exit;       
         $query = DB::query(Database::SELECT, $sql)
             ->execute($this->db)
             ->as_array();
         
         if (count($query) > 0) {
             $result = $this->convertToUtf8($query);
+			echo Debug::vars('310', $result);exit;
             return $result[0];
         }
         
@@ -813,4 +814,62 @@ class Model_Floorplanm extends Model
         
         return URL::base() . $imagePath;
     }
+	
+	
+	/**
+ * Поиск устройств на плане с таким же id_ctrl
+ * @param int $floorplanId - ID плана
+ * @param int $id_ctrl - ID контроллера
+ * @return array - список устройств с этим id_ctrl
+ */
+public function getDevicesByCtrlOnFloorplan($floorplanId, $id_ctrl)
+{
+    if (!$id_ctrl) {
+        return array();
+    }
+    
+    $sql = "SELECT fpp.id_point, fpp.x_pos, fpp.y_pos, fpp.id_dev, fpp.point_type, fpp.label,
+                   d.name as device_name, d.id_ctrl, d.id_reader
+            FROM floorplan_point fpp
+            LEFT JOIN device d ON fpp.id_dev = d.id_dev
+            WHERE fpp.id_floorplan = " . intval($floorplanId) . "
+            AND d.id_ctrl = " . intval($id_ctrl) . "
+            ORDER BY fpp.id_point";
+    
+    $query = DB::query(Database::SELECT, $sql)
+        ->execute($this->db)
+        ->as_array();
+    
+    return $this->convertToUtf8($query);
+}
+
+/**
+ * Поиск устройства и всех связанных по id_ctrl
+ */
+public function findDeviceWithRelated($deviceId)
+{
+    $device = $this->findDeviceInAllPlans($deviceId);
+    
+    if (!$device) {
+        return null;
+    }
+    
+    // Проверяем, есть ли id_ctrl у найденного устройства
+    $id_ctrl = isset($device['id_ctrl']) ? $device['id_ctrl'] : null;
+    $floorplanId = $device['id_floorplan'];
+    
+    if ($id_ctrl) {
+        $related = $this->getDevicesByCtrlOnFloorplan($floorplanId, $id_ctrl);
+    } else {
+        $related = array();
+    }
+    
+    return array(
+        'device' => $device,
+        'related' => $related,
+        'id_ctrl' => $id_ctrl,
+        'floorplan_id' => $floorplanId
+    );
+}
+
 }

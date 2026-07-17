@@ -44,30 +44,63 @@ class Controller_Floorplan extends Controller_Template
         }
     }
 
-    /**
-     * Поиск устройства по id_dev и перенаправление на нужный план
-     */
-    public function action_findDevice()
-    {
-        $id_dev = $this->request->query('id_dev');
-        
-        if (!$id_dev) {
-            $this->redirect('floorplan');
-        }
-        
-        $id_dev = (int)$id_dev;
-        $model = Model::factory('Floorplanm');
-        
-        $found = $model->findDeviceInAllPlans($id_dev);
-        
-        if ($found) {
-            $this->redirect('floorplan/view/' . $found['id_floorplan'] . '?highlight=' . $found['id_point'] . '&id_dev=' . $id_dev);
-        } else {
-            Session::instance()->set('message', 'Устройство с ID ' . $id_dev . ' не найдено ни на одном плане');
-            Session::instance()->set('message_type', 'warning');
-            $this->redirect('floorplan');
-        }
+
+/**
+ * Поиск устройства по id_dev с подсветкой связанных
+ */
+public function action_findDevice()
+{
+    $id_dev = $this->request->query('id_dev');
+    
+    if (!$id_dev) {
+        $this->redirect('floorplan');
     }
+    
+    $id_dev = (int)$id_dev;
+    $model = Model::factory('Floorplanm');
+    
+    // Находим устройство и все связанные по id_ctrl
+    $result = $model->findDeviceWithRelated($id_dev);
+    
+    if ($result && isset($result['device'])) {
+        $device = $result['device'];
+        $related = $result['related'];
+        $id_ctrl = $result['id_ctrl'];
+        
+        // Формируем список ID точек для подсветки
+        $highlightIds = array();
+        $relatedIds = array();
+        
+        foreach ($related as $point) {
+            if ($point['id_point'] == $device['id_point']) {
+                $highlightIds[] = $point['id_point']; // Искомое устройство
+            } else {
+                $relatedIds[] = $point['id_point']; // Связанные устройства
+            }
+        }
+        
+        // Если искомое не найдено в related (маловероятно), добавляем его
+        if (empty($highlightIds)) {
+            $highlightIds[] = $device['id_point'];
+        }
+        
+        // Перенаправляем на план с параметрами
+        $params = array(
+            'highlight' => implode(',', $highlightIds),
+            'related' => implode(',', $relatedIds),
+            'id_ctrl' => $id_ctrl,
+            'id_dev' => $id_dev
+        );
+        
+        $url = 'floorplan/view/' . $device['id_floorplan'] . '?' . http_build_query($params);
+        $this->redirect($url);
+    } else {
+        Session::instance()->set('message', 'Устройство с ID ' . $id_dev . ' не найдено ни на одном плане');
+        Session::instance()->set('message_type', 'warning');
+        $this->redirect('floorplan');
+    }
+}
+
 
     /**
      * AJAX: Проверка, занято ли устройство
@@ -120,23 +153,29 @@ class Controller_Floorplan extends Controller_Template
     /**
      * Просмотр плана
      */
-    public function action_view()
-    {
-        if (!$this->db_ready) {
-            $content = $this->getDbNotReadyView();
-            $this->template->content = $content;
-            return;
-        }
-        
-        $id = (int)$this->request->param('id', 0);
-        $model = Model::factory('Floorplanm');
+public function action_view()
+{
+    if (!$this->db_ready) {
+        $content = $this->getDbNotReadyView();
+        $this->template->content = $content;
+        return;
+    }
+    
+    $id = (int)$this->request->param('id', 0);
+    $model = Model::factory('Floorplanm');
 
-        // Если id не указан, проверяем параметр highlight
-        if (!$id) {
-            $highlight = $this->request->query('highlight');
-            if ($highlight) {
-                // Ищем точку и получаем id_floorplan
-                $sql = "SELECT id_floorplan FROM floorplan_point WHERE id_point = " . intval($highlight);
+    // Если id не указан, проверяем параметры highlight/related
+    if (!$id) {
+        $highlight = $this->request->query('highlight');
+        $related = $this->request->query('related');
+        
+        if ($highlight) {
+            // Берем первый ID из списка
+            $ids = explode(',', $highlight);
+            $firstId = (int)$ids[0];
+            
+            if ($firstId) {
+                $sql = "SELECT id_floorplan FROM floorplan_point WHERE id_point = " . intval($firstId);
                 $result = DB::query(Database::SELECT, $sql)
                     ->execute(Database::instance('fb'))
                     ->as_array();
@@ -145,54 +184,87 @@ class Controller_Floorplan extends Controller_Template
                 }
             }
         }
-
-        if (!$id || !$model->floorplanExists($id)) {
-            $this->redirect('floorplan');
-        }
-
-        $floorplan = $model->getFloorplanById($id);
-        $points = $model->getPointsByFloorplan($id);
-        $building = $model->getBuildingById($floorplan['id_building']);
-        $floors = $model->getFloorsByBuilding($floorplan['id_building']);
-
-        $deviceStatuses = $this->getDeviceStatuses($points);
-
-        // Подсветка точки
-        $highlight = $this->request->query('highlight');
-        $highlightData = null;
-        $id_dev = $this->request->query('id_dev');
-        
-        if ($highlight) {
-            foreach ($points as $point) {
-                if ($point['id_point'] == $highlight) {
-                    $highlightData = $point;
-                    break;
-                }
-            }
-        } elseif ($id_dev) {
-            foreach ($points as $point) {
-                if ($point['id_dev'] == $id_dev) {
-                    $highlightData = $point;
-                    break;
-                }
-            }
-        }
-
-        $content = View::factory('floorplan/view', array(
-            'floorplan' => $floorplan,
-            'points' => $points,
-            'floors' => $floors,
-            'building' => $building,
-            'deviceStatuses' => $deviceStatuses,
-            'is_admin' => $this->is_admin,
-            'db_ready' => $this->db_ready,
-            'highlightData' => $highlightData,
-            'searchIdDev' => $id_dev,
-        ));
-
-        $this->set_full_width(true);
-        $this->template->content = $content;
     }
+
+    if (!$id || !$model->floorplanExists($id)) {
+        $this->redirect('floorplan');
+    }
+
+    $floorplan = $model->getFloorplanById($id);
+    $points = $model->getPointsByFloorplan($id);
+    $building = $model->getBuildingById($floorplan['id_building']);
+    $floors = $model->getFloorsByBuilding($floorplan['id_building']);
+
+    $deviceStatuses = $this->getDeviceStatuses($points);
+
+    // Обработка подсветки
+    $highlightIds = array();
+    $relatedIds = array();
+    $highlightData = null;
+    $relatedData = array();
+    $id_ctrl = $this->request->query('id_ctrl');
+    $id_dev = $this->request->query('id_dev');
+    
+    // Получаем ID для подсветки
+    $highlightParam = $this->request->query('highlight');
+    if ($highlightParam) {
+        $highlightIds = array_map('intval', explode(',', $highlightParam));
+    }
+    
+    $relatedParam = $this->request->query('related');
+    if ($relatedParam) {
+        $relatedIds = array_map('intval', explode(',', $relatedParam));
+    }
+    
+    // Собираем данные о точках для подсветки
+    foreach ($points as $point) {
+        if (in_array($point['id_point'], $highlightIds)) {
+            $highlightData = $point;
+        }
+        if (in_array($point['id_point'], $relatedIds)) {
+            $relatedData[] = $point;
+        }
+    }
+    
+    // Если highlight не передан, но есть id_dev - ищем точку
+    if (!$highlightData && $id_dev) {
+        foreach ($points as $point) {
+            if ($point['id_dev'] == $id_dev) {
+                $highlightData = $point;
+                break;
+            }
+        }
+    }
+
+    // Собираем все ID для построения связей
+    $allHighlightIds = array_merge($highlightIds, $relatedIds);
+    $allHighlightPoints = array();
+    foreach ($points as $point) {
+        if (in_array($point['id_point'], $allHighlightIds)) {
+            $allHighlightPoints[] = $point;
+        }
+    }
+
+    $content = View::factory('floorplan/view', array(
+        'floorplan' => $floorplan,
+        'points' => $points,
+        'floors' => $floors,
+        'building' => $building,
+        'deviceStatuses' => $deviceStatuses,
+        'is_admin' => $this->is_admin,
+        'db_ready' => $this->db_ready,
+        'highlightData' => $highlightData,
+        'relatedData' => $relatedData,
+        'highlightIds' => $highlightIds,
+        'relatedIds' => $relatedIds,
+        'allHighlightPoints' => $allHighlightPoints,
+        'searchIdDev' => $id_dev,
+        'id_ctrl' => $id_ctrl,
+    ));
+
+    $this->set_full_width(true);
+    $this->template->content = $content;
+}
 
     /**
      * Редактирование плана
