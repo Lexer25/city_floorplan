@@ -48,18 +48,22 @@ class Controller_Floorplan extends Controller_Template
 /**
  * Поиск устройства по id_dev с подсветкой связанных
  */
+/**
+ * Поиск устройства по id_dev с подсветкой связанных
+ */
 public function action_findDevice()
 {
+    // Получаем параметр id_dev
     $id_dev = $this->request->query('id_dev');
     
-    if (!$id_dev) {
+    if (empty($id_dev)) {
         $this->redirect('floorplan');
+        return;
     }
     
     $id_dev = (int)$id_dev;
     $model = Model::factory('Floorplanm');
     
-    // Находим устройство и все связанные по id_ctrl
     $result = $model->findDeviceWithRelated($id_dev);
     
     if ($result && isset($result['device'])) {
@@ -67,24 +71,21 @@ public function action_findDevice()
         $related = $result['related'];
         $id_ctrl = $result['id_ctrl'];
         
-        // Формируем список ID точек для подсветки
         $highlightIds = array();
         $relatedIds = array();
         
         foreach ($related as $point) {
             if ($point['id_point'] == $device['id_point']) {
-                $highlightIds[] = $point['id_point']; // Искомое устройство
+                $highlightIds[] = $point['id_point'];
             } else {
-                $relatedIds[] = $point['id_point']; // Связанные устройства
+                $relatedIds[] = $point['id_point'];
             }
         }
         
-        // Если искомое не найдено в related (маловероятно), добавляем его
         if (empty($highlightIds)) {
             $highlightIds[] = $device['id_point'];
         }
         
-        // Перенаправляем на план с параметрами
         $params = array(
             'highlight' => implode(',', $highlightIds),
             'related' => implode(',', $relatedIds),
@@ -1090,4 +1091,44 @@ public function action_view()
         }
         return $statuses;
     }
+	
+	
+	
+	
+public function action_testFind()
+{
+    $this->auto_render = false;
+    
+    // Получаем параметр id_dev из URL
+    $id_dev = $this->request->query('id_dev');
+    
+    // Если параметр не передан или пустой
+    if (empty($id_dev)) {
+        echo 'Ошибка: параметр id_dev не передан';
+        return;
+    }
+    
+    // Приводим к int
+    $id_dev = (int)$id_dev;
+    
+    echo '<pre>';
+    echo '=== ТЕСТ ПОИСКА ===<br>';
+    echo 'ID устройства: ' . $id_dev . '<br><br>';
+    
+    $model = Model::factory('Floorplanm');
+    
+    // Проверяем findDeviceInAllPlans
+    echo '1. findDeviceInAllPlans:<br>';
+    $device = $model->findDeviceInAllPlans($id_dev);
+    var_dump($device);
+    echo '<br><br>';
+    
+    // Проверяем findDeviceWithRelated
+    echo '2. findDeviceWithRelated:<br>';
+    $result = $model->findDeviceWithRelated($id_dev);
+    var_dump($result);
+    echo '<br><br>';
+    
+    echo '</pre>';
+}
 }

@@ -295,19 +295,19 @@ class Model_Floorplanm extends Model
         $sql = "SELECT fp.id_floorplan, fp.name as floorplan_name, 
                        fp.id_building, fp.floor_number,
                        fpp.id_point, fpp.x_pos, fpp.y_pos, fpp.point_type, fpp.label,
-                       d.name as device_name
+                       d.name as device_name, d.id_ctrl
                 FROM floorplan_point fpp
                 JOIN floorplan fp ON fpp.id_floorplan = fp.id_floorplan
                 LEFT JOIN device d ON fpp.id_dev = d.id_dev
                 WHERE fpp.id_dev = " . intval($deviceId);
- echo Debug::vars('303');exit;       
+// echo Debug::vars('303', $sql);exit;       
         $query = DB::query(Database::SELECT, $sql)
             ->execute($this->db)
             ->as_array();
         
         if (count($query) > 0) {
             $result = $this->convertToUtf8($query);
-			echo Debug::vars('310', $result);exit;
+//			echo Debug::vars('310', $result);exit;
             return $result[0];
         }
         
@@ -848,20 +848,31 @@ public function getDevicesByCtrlOnFloorplan($floorplanId, $id_ctrl)
  */
 public function findDeviceWithRelated($deviceId)
 {
-    $device = $this->findDeviceInAllPlans($deviceId);
+    echo '=== findDeviceWithRelated START ===<br>';
+    echo 'deviceId: ' . $deviceId . '<br>';
     
+    $device = $this->findDeviceInAllPlans($deviceId);
+ //echo Debug::vars('855', $device);exit;   
     if (!$device) {
+        echo 'device не найден<br>';
         return null;
     }
     
-    // Проверяем, есть ли id_ctrl у найденного устройства
+    echo 'device найден: ';
+    var_dump($device);
+    echo '<br>';
+    
     $id_ctrl = isset($device['id_ctrl']) ? $device['id_ctrl'] : null;
     $floorplanId = $device['id_floorplan'];
     
+    echo 'id_ctrl: ' . $id_ctrl . ', floorplanId: ' . $floorplanId . '<br>';
+    
     if ($id_ctrl) {
         $related = $this->getDevicesByCtrlOnFloorplan($floorplanId, $id_ctrl);
+        echo 'related найдено: ' . count($related) . ' устройств<br>';
     } else {
         $related = array();
+        echo 'id_ctrl отсутствует<br>';
     }
     
     return array(
