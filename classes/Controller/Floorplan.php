@@ -549,71 +549,71 @@ public function action_view()
     /**
      * AJAX: Сохранение позиций точек
      */
-    public function action_savePositions()
-    {
-        $this->auto_render = false;
-        header('Content-Type: application/json');
-
-        if (!$this->is_admin) {
-            echo json_encode(array('success' => false, 'error' => 'Доступ запрещён'));
-            return;
-        }
-
-        if (!$this->db_ready) {
-            echo json_encode(array('success' => false, 'error' => 'База данных не установлена'));
-            return;
-        }
-
-        if ($this->request->method() != HTTP_Request::POST) {
-            echo json_encode(array('success' => false, 'error' => 'Invalid request method'));
-            return;
-        }
-
+ public function action_savePositions()
+{
+    // НЕ используем $this->auto_render = false;
+    // НЕ используем header('Content-Type: application/json');
+    
+    $response_data = array();
+    
+    if (!$this->is_admin) {
+        $response_data = array('success' => false, 'error' => 'Доступ запрещён');
+    } elseif (!$this->db_ready) {
+        $response_data = array('success' => false, 'error' => 'База данных не установлена');
+    } elseif ($this->request->method() != HTTP_Request::POST) {
+        $response_data = array('success' => false, 'error' => 'Invalid request method');
+    } else {
         $rawData = file_get_contents('php://input');
         $data = json_decode($rawData, true);
         $points = isset($data['points']) ? $data['points'] : array();
-
+        
         if (empty($points)) {
-            echo json_encode(array('success' => true, 'message' => 'Нет изменений'));
-            return;
-        }
-
-        $validatedPoints = array();
-        foreach ($points as $point) {
-            $id = isset($point['id']) ? (int)$point['id'] : 0;
-            $x = isset($point['x']) ? (float)$point['x'] : 0;
-            $y = isset($point['y']) ? (float)$point['y'] : 0;
+            $response_data = array('success' => true, 'message' => 'Нет изменений');
+        } else {
+            $validatedPoints = array();
+            foreach ($points as $point) {
+                $id = isset($point['id']) ? (int)$point['id'] : 0;
+                $x = isset($point['x']) ? (float)$point['x'] : 0;
+                $y = isset($point['y']) ? (float)$point['y'] : 0;
+                
+                $x = max(0, min(100, $x));
+                $y = max(0, min(100, $y));
+                
+                if ($id > 0) {
+                    $validatedPoints[] = array(
+                        'id' => $id,
+                        'x' => $x,
+                        'y' => $y
+                    );
+                }
+            }
             
-            $x = max(0, min(100, $x));
-            $y = max(0, min(100, $y));
-            
-            if ($id > 0) {
-                $validatedPoints[] = array(
-                    'id' => $id,
-                    'x' => $x,
-                    'y' => $y
-                );
+            if (empty($validatedPoints)) {
+                $response_data = array('success' => false, 'error' => 'Нет валидных точек');
+            } else {
+                $model = Model::factory('Floorplanm');
+                $result = $model->savePointsPositions($validatedPoints);
+                
+                if ($result) {
+                    $response_data = array(
+                        'success' => true, 
+                        'message' => 'Сохранено ' . count($validatedPoints) . ' точек',
+                        'count' => count($validatedPoints)
+                    );
+                } else {
+                    $response_data = array('success' => false, 'error' => 'Ошибка при сохранении');
+                }
             }
         }
-        
-        if (empty($validatedPoints)) {
-            echo json_encode(array('success' => false, 'error' => 'Нет валидных точек'));
-            return;
-        }
-
-        $model = Model::factory('Floorplanm');
-        $result = $model->savePointsPositions($validatedPoints);
-
-        if ($result) {
-            echo json_encode(array(
-                'success' => true, 
-                'message' => 'Сохранено ' . count($validatedPoints) . ' точек',
-                'count' => count($validatedPoints)
-            ));
-        } else {
-            echo json_encode(array('success' => false, 'error' => 'Ошибка при сохранении'));
-        }
     }
+    
+    // Отключаем рендеринг шаблона
+    $this->auto_render = false;
+    
+    // Устанавливаем заголовки через Response объект
+    $this->response->headers('Content-Type', 'application/json');
+    $this->response->body(json_encode($response_data));
+}
 
     /**
      * AJAX: Добавление точки
