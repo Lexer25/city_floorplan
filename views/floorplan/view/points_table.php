@@ -5,7 +5,13 @@
     <div class="col-md-12">
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h4 class="panel-title">Точки прохода на плане</h4>
+                <h4 class="panel-title">
+                    Точки прохода на плане
+                    <span class="pull-right text-muted" style="font-size: 12px; font-weight: normal;">
+                        <span class="glyphicon glyphicon-info-sign"></span>
+                        Нажмите <span class="glyphicon glyphicon-search"></span> чтобы найти устройство на плане
+                    </span>
+                </h4>
             </div>
             <div class="panel-body">
                 <div class="table-responsive">
@@ -19,7 +25,7 @@
                                 <th>Метка</th>
                                 <th>Позиция</th>
                                 <th>Статус</th>
-                                <th></th>
+                                <th>Действия</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -34,7 +40,9 @@
                                     $isRelated = in_array($point['id_point'], $relatedIds);
                                     $counter++;
                                 ?>
-                                    <tr data-point-id="<?php echo $point['id_point']; ?>" <?php echo $isHighlighted ? 'class="success"' : ($isRelated ? 'class="info"' : ''); ?>>
+                                    <tr data-point-id="<?php echo $point['id_point']; ?>" 
+                                        data-device-id="<?php echo $point['id_dev']; ?>"
+                                        <?php echo $isHighlighted ? 'class="success"' : ($isRelated ? 'class="info"' : ''); ?>>
                                         <td><?php echo $counter; ?></td>
                                         <td>
                                             <?php if ($point['point_type'] == 'reader'): ?>
@@ -72,6 +80,19 @@
                                             </span>
                                         </td>
                                         <td>
+                                            <!-- Кнопка "Найти на плане" -->
+                                            <?php if ($point['id_dev']): ?>
+                                                <a href="<?php echo URL::site('floorplan/findDevice?id_dev=' . $point['id_dev']); ?>" 
+                                                   class="btn btn-xs btn-primary" 
+                                                   title="Найти устройство на плане"
+                                                   target="_blank">
+                                                    <span class="glyphicon glyphicon-search"></span>
+                                                </a>
+                                            <?php else: ?>
+                                                <button class="btn btn-xs btn-default" disabled title="Нет ID устройства">
+                                                    <span class="glyphicon glyphicon-search"></span>
+                                                </button>
+                                            <?php endif; ?>
                                             <?php if ($isHighlighted): ?>
                                                 <span class="glyphicon glyphicon-star" style="color: #ff9800;" title="Искомое устройство"></span>
                                             <?php elseif ($isRelated): ?>
