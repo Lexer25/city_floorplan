@@ -49,7 +49,7 @@
         <!-- Подсказка -->
         <div style="padding: 5px 10px; background: #f0f8ff; border-bottom: 1px solid #d9edf7; font-size: 11px; color: #31708f;">
             <span class="glyphicon glyphicon-info-sign"></span>
-            Показаны только устройства, которые можно добавить на план
+            Перетащите устройство на план, чтобы добавить
         </div>
         
         <!-- Вкладки -->
@@ -72,13 +72,12 @@
             <div class="tab-pane active" id="tabReaders" style="height: 100%; overflow-y: auto; padding: 5px;">
                 <?php if (!empty($readers)): ?>
                     <?php foreach ($readers as $device): ?>
-                        <div class="device-item reader-item" 
+                        <div class="device-item reader-item draggable-device" 
                              data-device-id="<?php echo $device['id_dev']; ?>"
                              data-device-name="<?php echo htmlspecialchars($device['name']); ?>"
-                             style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: pointer; border-left: 3px solid #5bc0de; font-size: 12px; transition: all 0.2s ease;"
-                             onclick="selectDevice(this, 'reader')"
-                             onmouseover="this.style.background='#e8f0fe'"
-                             onmouseout="if (!this.classList.contains('selected')) this.style.background='#f9f9f9'">
+                             data-device-type="reader"
+                             style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: grab; border-left: 3px solid #5bc0de; font-size: 12px; transition: all 0.2s ease; user-select: none;"
+                             title="Перетащите на план">
                             <span class="glyphicon glyphicon-qrcode text-info" style="margin-right: 5px;"></span>
                             <?php echo htmlspecialchars($device['name']); ?>
                             <span style="color: #999; font-size: 10px;">(id=<?php echo $device['id_dev']; ?>)</span>
@@ -96,13 +95,12 @@
             <div class="tab-pane" id="tabControllers" style="height: 100%; overflow-y: auto; padding: 5px;">
                 <?php if (!empty($controllers)): ?>
                     <?php foreach ($controllers as $device): ?>
-                        <div class="device-item controller-item" 
+                        <div class="device-item controller-item draggable-device" 
                              data-device-id="<?php echo $device['id_dev']; ?>"
                              data-device-name="<?php echo htmlspecialchars($device['name']); ?>"
-                             style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: pointer; border-left: 3px solid #f0ad4e; font-size: 12px; transition: all 0.2s ease;"
-                             onclick="selectDevice(this, 'controller')"
-                             onmouseover="this.style.background='#fff3e0'"
-                             onmouseout="if (!this.classList.contains('selected')) this.style.background='#f9f9f9'">
+                             data-device-type="controller"
+                             style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: grab; border-left: 3px solid #f0ad4e; font-size: 12px; transition: all 0.2s ease; user-select: none;"
+                             title="Перетащите на план">
                             <span class="glyphicon glyphicon-cog text-warning" style="margin-right: 5px;"></span>
                             <?php echo htmlspecialchars($device['name']); ?>
                             <span style="color: #999; font-size: 10px;">(id=<?php echo $device['id_dev']; ?>)</span>
@@ -118,9 +116,9 @@
         </div>
         
         <div id="devicePanelFooter" style="padding: 5px 10px; background: #f5f5f5; border-top: 1px solid #ddd; font-size: 11px; color: #999; flex-shrink: 0;">
-            <span id="selectedDeviceInfo">Выберите устройство для добавления</span>
+            <span id="selectedDeviceInfo">Перетащите устройство на план</span>
             <span style="display: block; font-size: 9px; color: #ccc; margin-top: 2px;">
-                <span class="glyphicon glyphicon-ok-circle" style="color: #5cb85c;"></span> свободно для добавления
+                <span class="glyphicon glyphicon-hand-up"></span> drag &amp; drop
             </span>
         </div>
     </div>

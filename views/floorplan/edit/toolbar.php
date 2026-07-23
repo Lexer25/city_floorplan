@@ -15,9 +15,7 @@
         <button type="button" class="btn btn-default btn-sm" onclick="fitToScreen()" title="Подогнать под размер экрана">
             <span class="glyphicon glyphicon-zoom-in"></span> По размеру
         </button>
-        <button type="button" class="btn btn-success btn-sm" id="toggleClickMode" onclick="toggleClickMode()">
-            <span class="glyphicon glyphicon-hand-up"></span> Режим клика
-        </button>
+       
     </div>
     <span class="zoom-level">Масштаб: <strong id="zoomLevelDisplay">100</strong>%</span>
     <span class="text-muted" style="font-size: 11px; margin-left: 15px;">
