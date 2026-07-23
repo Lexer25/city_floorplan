@@ -38,11 +38,18 @@
     ">
         <div style="background: #337ab7; color: #fff; padding: 8px 12px; border-radius: 4px 0 0 0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
             <strong style="font-size: 13px;">
-                <span class="glyphicon glyphicon-list"></span> Устройства
+                <span class="glyphicon glyphicon-list"></span> Доступные устройства
             </strong>
             <span style="font-size: 11px; opacity: 0.7;">
-                Всего: <?php echo count($readers) + count($controllers); ?>
+                <?php echo count($readers) + count($controllers); ?>
+                <span style="color: #999; font-size: 10px; margin-left: 3px;">(свободны)</span>
             </span>
+        </div>
+        
+        <!-- Подсказка -->
+        <div style="padding: 5px 10px; background: #f0f8ff; border-bottom: 1px solid #d9edf7; font-size: 11px; color: #31708f;">
+            <span class="glyphicon glyphicon-info-sign"></span>
+            Показаны только устройства, которые можно добавить на план
         </div>
         
         <!-- Вкладки -->
@@ -80,7 +87,7 @@
                 <?php else: ?>
                     <div style="padding: 15px; text-align: center; color: #999; font-size: 12px;">
                         <span class="glyphicon glyphicon-info-sign"></span><br>
-                        Нет доступных считывателей
+                        Нет свободных считывателей
                     </div>
                 <?php endif; ?>
             </div>
@@ -104,7 +111,7 @@
                 <?php else: ?>
                     <div style="padding: 15px; text-align: center; color: #999; font-size: 12px;">
                         <span class="glyphicon glyphicon-info-sign"></span><br>
-                        Нет доступных контроллеров
+                        Нет свободных контроллеров
                     </div>
                 <?php endif; ?>
             </div>
@@ -112,6 +119,9 @@
         
         <div id="devicePanelFooter" style="padding: 5px 10px; background: #f5f5f5; border-top: 1px solid #ddd; font-size: 11px; color: #999; flex-shrink: 0;">
             <span id="selectedDeviceInfo">Выберите устройство для добавления</span>
+            <span style="display: block; font-size: 9px; color: #ccc; margin-top: 2px;">
+                <span class="glyphicon glyphicon-ok-circle" style="color: #5cb85c;"></span> свободно для добавления
+            </span>
         </div>
     </div>
 </div>
