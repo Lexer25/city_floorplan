@@ -26,9 +26,9 @@
             }
         ?>
             <div class="floorplan-point <?php echo $statusClass; ?> draggable <?php echo $isHighlighted ? 'highlighted' : ''; ?>" 
-                 data-point-id="<?php echo $point['id_point']; ?>"
-                 data-device-id="<?php echo $point['id_dev']; ?>"
-                 style="position: absolute; left: <?php echo $point['x_pos']; ?>%; top: <?php echo $point['y_pos']; ?>%; cursor: grab; transform: translate(-50%, -50%); <?php echo $isHighlighted ? 'z-index: 50;' : ''; ?>">
+     data-point-id="<?php echo $point['id_point']; ?>"
+     data-device-id="<?php echo $point['id_dev']; ?>"
+     style="position: absolute; left: <?php echo str_replace(',', '.', $point['x_pos']); ?>%; top: <?php echo str_replace(',', '.', $point['y_pos']); ?>%; cursor: grab; transform: translate(-50%, -50%); <?php echo $isHighlighted ? 'z-index: 50;' : ''; ?>">
                 
                 <div class="point-icon" title="<?php echo htmlspecialchars($tooltip); ?>">
                     <?php 

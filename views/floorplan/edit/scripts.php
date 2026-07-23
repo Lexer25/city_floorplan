@@ -235,132 +235,155 @@ function selectDevice(el, type) {
 }
 
 // ==========================================
-// ПЕРЕТАСКИВАНИЕ ТОЧЕК (исправленный)
+// ПЕРЕТАСКИВАНИЕ ТОЧЕК
 // ==========================================
 
-$(document).ready(function() {
-    var $points = $('.floorplan-point.draggable');
+(function() {
     var $container = $('#floorplanCanvas');
     var isDragging = false;
+    var dragTarget = null;
+    var startX = 0;
+    var startY = 0;
+    var startLeftPx = 0;
+    var startTopPx = 0;
+    var startLeftPct = 0;
+    var startTopPct = 0;
+    var parentWidth = 0;
+    var parentHeight = 0;
 
-    if ($points.length > 0 && $container.length > 0) {
-        $points.draggable({
-            containment: $container,
-            cursor: 'grab',
-            handle: '.point-icon',
-            // Отключаем автоматическое вычисление позиции
-            refreshPositions: false,
-            
-            start: function(e, ui) {
-                isDragging = true;
-                var $this = $(this);
-                
-                // Получаем текущие проценты
-                var leftPct = parseFloat($this.css('left'));
-                var topPct = parseFloat($this.css('top'));
-                
-                var parentWidth = $container.width();
-                var parentHeight = $container.height();
-                
-                // Пересчитываем в пиксели
-                var leftPx = (leftPct / 100) * parentWidth;
-                var topPx = (topPct / 100) * parentHeight;
-                
-                // Устанавливаем позицию в пикселях, НЕ трогая transform
-                $this.css({
-                    'left': leftPx + 'px',
-                    'top': topPx + 'px'
-                });
-                
-                // Устанавливаем позицию для ui
-                ui.position.left = leftPx;
-                ui.position.top = topPx;
-                
-                $this.css('z-index', 20);
-                $this.find('.point-actions').show();
-                $this.addClass('dragging');
-                
-                $('#clickCoords').text('X: ' + Math.round(leftPct) + '% Y: ' + Math.round(topPct) + '%');
-            },
-            
-            drag: function(e, ui) {
-                var $this = $(this);
-                var parentWidth = $container.width();
-                var parentHeight = $container.height();
-                
-                // Получаем позицию от ui
-                var left = ui.position.left;
-                var top = ui.position.top;
-                
-                // Ограничиваем
-                var maxLeft = parentWidth - $this.outerWidth();
-                var maxTop = parentHeight - $this.outerHeight();
-                left = Math.max(0, Math.min(maxLeft, left));
-                top = Math.max(0, Math.min(maxTop, top));
-                
-                var xPercent = (left / parentWidth) * 100;
-                var yPercent = (top / parentHeight) * 100;
-                
-                xPercent = Math.max(0, Math.min(100, xPercent));
-                yPercent = Math.max(0, Math.min(100, yPercent));
-                
-                $('#clickCoords').text('X: ' + Math.round(xPercent) + '% Y: ' + Math.round(yPercent) + '%');
-                
-                // Обновляем позицию
-                $this.css({
-                    'left': left + 'px',
-                    'top': top + 'px'
-                });
-            },
-            
-            stop: function(e, ui) {
-                isDragging = false;
-                var $point = $(this);
-                var pointId = $point.data('point-id');
-                var parentWidth = $container.width();
-                var parentHeight = $container.height();
-                
-                // Получаем текущую позицию в пикселях
-                var left = parseFloat($point.css('left'));
-                var top = parseFloat($point.css('top'));
-                
-                // Пересчитываем в проценты
-                var xPercent = (left / parentWidth) * 100;
-                var yPercent = (top / parentHeight) * 100;
-                
-                xPercent = Math.max(0, Math.min(100, xPercent));
-                yPercent = Math.max(0, Math.min(100, yPercent));
-                
-                // Возвращаем проценты (transform остается)
-                $point.css({
-                    'left': xPercent + '%',
-                    'top': yPercent + '%'
-                });
-                
-                $point.removeClass('dragging');
-                $('#clickCoords').text('');
-                
-                savePointPosition(pointId, xPercent, yPercent);
+    $(document).on('mousedown', '.floorplan-point.draggable .point-icon', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        var $point = $(this).closest('.floorplan-point');
+        if (!$point.hasClass('draggable')) return;
+        
+        parentWidth = $container.width();
+        parentHeight = $container.height();
+        
+        var leftStr = $point.css('left');
+        var topStr = $point.css('top');
+        
+        var isPercent = leftStr.indexOf('%') !== -1;
+        var leftVal, topVal;
+        
+        if (isPercent) {
+            leftVal = parseFloat(leftStr.replace('%', '').replace(',', '.'));
+            topVal = parseFloat(topStr.replace('%', '').replace(',', '.'));
+        } else {
+            leftVal = parseFloat(leftStr.replace('px', ''));
+            topVal = parseFloat(topStr.replace('px', ''));
+        }
+        
+        if (isPercent) {
+            if (isNaN(leftVal) || leftVal < 0 || leftVal > 100) {
+                leftVal = 50;
+                topVal = 50;
             }
+            startLeftPct = leftVal;
+            startTopPct = topVal;
+            startLeftPx = (startLeftPct / 100) * parentWidth;
+            startTopPx = (startTopPct / 100) * parentHeight;
+        } else {
+            startLeftPx = leftVal;
+            startTopPx = topVal;
+            startLeftPct = (startLeftPx / parentWidth) * 100;
+            startTopPct = (startTopPx / parentHeight) * 100;
+        }
+        
+        startX = e.pageX;
+        startY = e.pageY;
+        
+        $point.css({
+            'left': startLeftPx + 'px',
+            'top': startTopPx + 'px'
         });
+        
+        dragTarget = $point;
+        isDragging = true;
+        
+        $point.css('z-index', 20);
+        $point.find('.point-actions').show();
+        $point.addClass('dragging');
+        
+        $('#clickCoords').text('X: ' + Math.round(startLeftPct) + '% Y: ' + Math.round(startTopPct) + '%');
+        
+        return false;
+    });
 
-        // Hover эффекты
-        $points.hover(
-            function() {
-                if (!isDragging) {
-                    $(this).find('.point-actions').show();
-                    showPointInfo($(this));
-                }
-            },
-            function() {
-                if (!isDragging) {
-                    $(this).find('.point-actions').hide();
-                    hidePointInfo();
-                }
-            }
-        );
-    }
-});
+    $(document).on('mousemove', function(e) {
+        if (!isDragging || !dragTarget) return;
+        
+        var dx = e.pageX - startX;
+        var dy = e.pageY - startY;
+        
+        var left = startLeftPx + dx;
+        var top = startTopPx + dy;
+        
+        var maxLeft = parentWidth - dragTarget.outerWidth();
+        var maxTop = parentHeight - dragTarget.outerHeight();
+        left = Math.max(0, Math.min(maxLeft, left));
+        top = Math.max(0, Math.min(maxTop, top));
+        
+        var xPercent = (left / parentWidth) * 100;
+        var yPercent = (top / parentHeight) * 100;
+        xPercent = Math.max(0, Math.min(100, xPercent));
+        yPercent = Math.max(0, Math.min(100, yPercent));
+        
+        $('#clickCoords').text('X: ' + Math.round(xPercent) + '% Y: ' + Math.round(yPercent) + '%');
+        
+        dragTarget.css({
+            'left': left + 'px',
+            'top': top + 'px'
+        });
+    });
+
+    $(document).on('mouseup', function(e) {
+        if (!isDragging || !dragTarget) {
+            isDragging = false;
+            return;
+        }
+        
+        var $point = dragTarget;
+        var pointId = $point.data('point-id');
+        
+        var left = parseFloat($point.css('left'));
+        var top = parseFloat($point.css('top'));
+        
+        var xPercent = (left / parentWidth) * 100;
+        var yPercent = (top / parentHeight) * 100;
+        
+        xPercent = Math.max(0, Math.min(100, xPercent));
+        yPercent = Math.max(0, Math.min(100, yPercent));
+        
+        $point.css({
+            'left': xPercent + '%',
+            'top': yPercent + '%'
+        });
+        
+        $point.removeClass('dragging');
+        $('#clickCoords').text('');
+        
+        isDragging = false;
+        dragTarget = null;
+        
+        savePointPosition(pointId, xPercent, yPercent);
+    });
+
+    $(document).on('mouseenter', '.floorplan-point.draggable', function() {
+        if (!isDragging) {
+            $(this).find('.point-actions').show();
+            showPointInfo($(this));
+        }
+    });
+    
+    $(document).on('mouseleave', '.floorplan-point.draggable', function() {
+        if (!isDragging) {
+            $(this).find('.point-actions').hide();
+            hidePointInfo();
+        }
+    });
+})();
 
 // ==========================================
 // DRAG & DROP: ПЕРЕТАСКИВАНИЕ УСТРОЙСТВ НА ПЛАН
@@ -532,7 +555,6 @@ function savePointPosition(pointId, x, y) {
         success: function(response) {
             if (response.success) {
                 $indicator.text('✓ Сохранено!').css('background', '#5cb85c').fadeOut(1000);
-                console.log('Position saved for point ' + pointId);
             } else {
                 $indicator.text('✗ Ошибка!').css('background', '#d9534f').fadeOut(2000);
             }
@@ -582,8 +604,6 @@ function saveClickPoint() {
         },
         dataType: 'json',
         success: function(response) {
-            console.log('Ответ сервера:', response);
-            
             if (response.success) {
                 dialog.dialog('close');
                 showNotification('Точка успешно добавлена!', 'success');
@@ -607,7 +627,6 @@ function saveClickPoint() {
             }
         },
         error: function(xhr, status, error) {
-            console.error('AJAX Error:', xhr, status, error);
             showNotification('Ошибка при отправке запроса: ' + error, 'error');
             
             if (buttons && buttons[1]) {
@@ -637,10 +656,9 @@ function showNotification(message, type) {
         .fadeIn(300);
     
     clearTimeout($notification.data('timer'));
-    var timer = setTimeout(function() {
+    setTimeout(function() {
         $notification.fadeOut(300);
     }, 3000);
-    $notification.data('timer', timer);
 }
 
 // ==========================================
@@ -648,9 +666,6 @@ function showNotification(message, type) {
 // ==========================================
 
 function deletePoint(pointId, btn) {
-    console.log('=== УДАЛЕНИЕ ТОЧКИ ===');
-    console.log('ID:', pointId);
-    
     if (!pointId) {
         showNotification('Ошибка: ID точки не найден', 'error');
         return;
@@ -672,7 +687,6 @@ function deletePoint(pointId, btn) {
         data: { point_id: pointId },
         dataType: 'json',
         success: function(response) {
-            console.log('Ответ сервера:', response);
             if (response.success) {
                 if ($row.length) {
                     $row.fadeOut(300, function() {
@@ -695,8 +709,7 @@ function deletePoint(pointId, btn) {
                 $btn.html(originalHtml).prop('disabled', false);
             }
         },
-        error: function(xhr, status, error) {
-            console.error('Ошибка AJAX:', xhr, status, error);
+        error: function() {
             showNotification('Ошибка: ' + error, 'error');
             $btn.html(originalHtml).prop('disabled', false);
         }
@@ -737,8 +750,6 @@ $(document).ready(function() {
             $(this).attr('onclick', 'deletePoint(' + pointId + ', this)');
         }
     });
-    
-    console.log('✅ Все кнопки удаления настроены!');
     
     $(document).on('click', '.delete-point', function(e) {
         e.preventDefault();
