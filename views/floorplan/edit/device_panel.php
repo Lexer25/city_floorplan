@@ -71,14 +71,19 @@
             <!-- Считыватели -->
             <div class="tab-pane active" id="tabReaders" style="height: 100%; overflow-y: auto; padding: 5px;">
                 <?php if (!empty($readers)): ?>
-                    <?php foreach ($readers as $device): ?>
+                    <?php 
+                    $iconPath = URL::base() . 'media/floorplan/icons/';
+                    foreach ($readers as $device): 
+                    ?>
                         <div class="device-item reader-item draggable-device" 
                              data-device-id="<?php echo $device['id_dev']; ?>"
                              data-device-name="<?php echo htmlspecialchars($device['name']); ?>"
                              data-device-type="reader"
                              style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: grab; border-left: 3px solid #5bc0de; font-size: 12px; transition: all 0.2s ease; user-select: none;"
                              title="Перетащите на план">
-                            <span class="glyphicon glyphicon-qrcode text-info" style="margin-right: 5px;"></span>
+                            <img src="<?php echo $iconPath; ?>reader.svg" 
+                                 style="width: 16px; height: 16px; margin-right: 5px; vertical-align: middle;"
+                                 alt="Считыватель">
                             <?php echo htmlspecialchars($device['name']); ?>
                             <span style="color: #999; font-size: 10px;">(id=<?php echo $device['id_dev']; ?>)</span>
                         </div>
@@ -94,14 +99,19 @@
             <!-- Контроллеры -->
             <div class="tab-pane" id="tabControllers" style="height: 100%; overflow-y: auto; padding: 5px;">
                 <?php if (!empty($controllers)): ?>
-                    <?php foreach ($controllers as $device): ?>
+                    <?php 
+                    $iconPath = URL::base() . 'media/floorplan/icons/';
+                    foreach ($controllers as $device): 
+                    ?>
                         <div class="device-item controller-item draggable-device" 
                              data-device-id="<?php echo $device['id_dev']; ?>"
                              data-device-name="<?php echo htmlspecialchars($device['name']); ?>"
                              data-device-type="controller"
                              style="padding: 5px 8px; margin: 2px 0; background: #f9f9f9; border-radius: 3px; cursor: grab; border-left: 3px solid #f0ad4e; font-size: 12px; transition: all 0.2s ease; user-select: none;"
                              title="Перетащите на план">
-                            <span class="glyphicon glyphicon-cog text-warning" style="margin-right: 5px;"></span>
+                            <img src="<?php echo $iconPath; ?>controller.svg" 
+                                 style="width: 16px; height: 16px; margin-right: 5px; vertical-align: middle;"
+                                 alt="Контроллер">
                             <?php echo htmlspecialchars($device['name']); ?>
                             <span style="color: #999; font-size: 10px;">(id=<?php echo $device['id_dev']; ?>)</span>
                         </div>
