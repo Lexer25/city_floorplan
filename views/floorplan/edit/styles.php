@@ -114,6 +114,10 @@
     transition: transform 0.15s ease;
 }
 
+/* ========================================== */
+/* СТИЛИ ДЛЯ ТОЧЕК НА ПЛАНЕ                   */
+/* ========================================== */
+
 .floorplan-point {
     z-index: 10;
     transition: all 0.2s ease;
@@ -559,6 +563,11 @@ tr.success td {
     .floorplan-point .point-icon .glyphicon {
         font-size: 32px !important;
         opacity: 1 !important;
+    }
+
+    .floorplan-point .point-icon img {
+        width: 32px !important;
+        height: 32px !important;
     }
 
     .floorplan-point .point-label {

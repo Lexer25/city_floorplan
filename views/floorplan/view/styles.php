@@ -62,8 +62,10 @@
 }
 
 .floorplan-point {
-    z-index: 10;
-    transition: all 0.2s ease;
+    position: absolute;
+    /* Центрирование через margin */
+    margin-left: -14px;  /* половина ширины иконки (28px/2) */
+    margin-top: -14px;   /* половина высоты иконки (28px/2) */
 }
 
 .floorplan-point:hover {

@@ -235,7 +235,7 @@ function selectDevice(el, type) {
 }
 
 // ==========================================
-// ПЕРЕТАСКИВАНИЕ ТОЧЕК
+// ПЕРЕТАСКИВАНИЕ ТОЧЕК (исправленный)
 // ==========================================
 
 $(document).ready(function() {
@@ -248,29 +248,71 @@ $(document).ready(function() {
             containment: $container,
             cursor: 'grab',
             handle: '.point-icon',
+            // Отключаем автоматическое вычисление позиции
+            refreshPositions: false,
+            
             start: function(e, ui) {
                 isDragging = true;
-                $(this).css('z-index', 20);
-                $(this).find('.point-actions').show();
-                $(this).addClass('dragging');
-            },
-            drag: function(e, ui) {
-                // Показываем координаты в статусной строке
+                var $this = $(this);
+                
+                // Получаем текущие проценты
+                var leftPct = parseFloat($this.css('left'));
+                var topPct = parseFloat($this.css('top'));
+                
                 var parentWidth = $container.width();
                 var parentHeight = $container.height();
+                
+                // Пересчитываем в пиксели
+                var leftPx = (leftPct / 100) * parentWidth;
+                var topPx = (topPct / 100) * parentHeight;
+                
+                // Устанавливаем позицию в пикселях, НЕ трогая transform
+                $this.css({
+                    'left': leftPx + 'px',
+                    'top': topPx + 'px'
+                });
+                
+                // Устанавливаем позицию для ui
+                ui.position.left = leftPx;
+                ui.position.top = topPx;
+                
+                $this.css('z-index', 20);
+                $this.find('.point-actions').show();
+                $this.addClass('dragging');
+                
+                $('#clickCoords').text('X: ' + Math.round(leftPct) + '% Y: ' + Math.round(topPct) + '%');
+            },
+            
+            drag: function(e, ui) {
+                var $this = $(this);
+                var parentWidth = $container.width();
+                var parentHeight = $container.height();
+                
+                // Получаем позицию от ui
                 var left = ui.position.left;
                 var top = ui.position.top;
-                var pointWidth = $(this).outerWidth();
-                var pointHeight = $(this).outerHeight();
                 
-                var xPercent = ((left + pointWidth/2) / parentWidth) * 100;
-                var yPercent = ((top + pointHeight/2) / parentHeight) * 100;
+                // Ограничиваем
+                var maxLeft = parentWidth - $this.outerWidth();
+                var maxTop = parentHeight - $this.outerHeight();
+                left = Math.max(0, Math.min(maxLeft, left));
+                top = Math.max(0, Math.min(maxTop, top));
+                
+                var xPercent = (left / parentWidth) * 100;
+                var yPercent = (top / parentHeight) * 100;
                 
                 xPercent = Math.max(0, Math.min(100, xPercent));
                 yPercent = Math.max(0, Math.min(100, yPercent));
                 
                 $('#clickCoords').text('X: ' + Math.round(xPercent) + '% Y: ' + Math.round(yPercent) + '%');
+                
+                // Обновляем позицию
+                $this.css({
+                    'left': left + 'px',
+                    'top': top + 'px'
+                });
             },
+            
             stop: function(e, ui) {
                 isDragging = false;
                 var $point = $(this);
@@ -278,20 +320,22 @@ $(document).ready(function() {
                 var parentWidth = $container.width();
                 var parentHeight = $container.height();
                 
-                var left = ui.position.left;
-                var top = ui.position.top;
+                // Получаем текущую позицию в пикселях
+                var left = parseFloat($point.css('left'));
+                var top = parseFloat($point.css('top'));
                 
-                var pointWidth = $point.outerWidth();
-                var pointHeight = $point.outerHeight();
-                
-                var xPercent = ((left + pointWidth/2) / parentWidth) * 100;
-                var yPercent = ((top + pointHeight/2) / parentHeight) * 100;
+                // Пересчитываем в проценты
+                var xPercent = (left / parentWidth) * 100;
+                var yPercent = (top / parentHeight) * 100;
                 
                 xPercent = Math.max(0, Math.min(100, xPercent));
                 yPercent = Math.max(0, Math.min(100, yPercent));
                 
-                $point.css('left', xPercent + '%');
-                $point.css('top', yPercent + '%');
+                // Возвращаем проценты (transform остается)
+                $point.css({
+                    'left': xPercent + '%',
+                    'top': yPercent + '%'
+                });
                 
                 $point.removeClass('dragging');
                 $('#clickCoords').text('');
@@ -300,6 +344,7 @@ $(document).ready(function() {
             }
         });
 
+        // Hover эффекты
         $points.hover(
             function() {
                 if (!isDragging) {
@@ -327,18 +372,14 @@ $(document).ready(function() {
     var draggedDeviceType = null;
     var draggedDeviceName = null;
     
-    // Делаем устройства перетаскиваемыми
     $('.draggable-device').on('mousedown', function(e) {
-        // Запоминаем информацию об устройстве
         draggedDevice = $(this);
         draggedDeviceId = $(this).data('device-id');
         draggedDeviceType = $(this).data('device-type');
         draggedDeviceName = $(this).data('device-name');
         
-        // Добавляем класс для визуального эффекта
         $(this).addClass('dragging-device');
         
-        // Создаем клон для drag-эффекта
         var clone = $(this).clone();
         clone.css({
             'position': 'fixed',
@@ -354,14 +395,12 @@ $(document).ready(function() {
         clone.addClass('drag-clone');
         $('body').append(clone);
         
-        // Следим за мышью
         $(document).on('mousemove.drag', function(e) {
             clone.css({
                 'left': (e.pageX - 20) + 'px',
                 'top': (e.pageY - 20) + 'px'
             });
             
-            // Проверяем, над планом ли курсор
             var $canvas = $('#floorplanCanvas');
             var canvasOffset = $canvas.offset();
             
@@ -381,14 +420,11 @@ $(document).ready(function() {
             }
         });
         
-        // Отпускаем кнопку мыши
         $(document).on('mouseup.drag', function(e) {
-            // Удаляем клон
             clone.remove();
             $(document).off('.drag');
             $('#floorplanCanvas').css('border', 'none');
             
-            // Проверяем, над планом ли отпустили
             var $canvas = $('#floorplanCanvas');
             var canvasOffset = $canvas.offset();
             
@@ -399,14 +435,12 @@ $(document).ready(function() {
                                    e.pageY <= canvasOffset.top + $canvas.height();
                 
                 if (isOverCanvas) {
-                    // Вычисляем координаты на плане
                     var x = ((e.pageX - canvasOffset.left) / $canvas.width()) * 100;
                     var y = ((e.pageY - canvasOffset.top) / $canvas.height()) * 100;
                     
                     x = Math.max(0, Math.min(100, x));
                     y = Math.max(0, Math.min(100, y));
                     
-                    // Открываем диалог добавления точки
                     clickX = x;
                     clickY = y;
                     $('#clickX').val(Math.round(x) + '%');
@@ -415,7 +449,6 @@ $(document).ready(function() {
                     $('#clickLabel').val(draggedDeviceName || '');
                     $('#clickPointType').val(draggedDeviceType === 'reader' ? 'reader' : 'controller');
                     
-                    // Закрываем панель устройств
                     if (panelVisible) {
                         toggleDevicePanel();
                     }
@@ -424,7 +457,6 @@ $(document).ready(function() {
                 }
             }
             
-            // Снимаем класс
             $('.dragging-device').removeClass('dragging-device');
             draggedDevice = null;
         });
@@ -432,7 +464,6 @@ $(document).ready(function() {
         return false;
     });
     
-    // Курсор для всех draggable-элементов
     $(document).on('mouseenter', '.draggable-device', function() {
         $(this).css('cursor', 'grab');
     });
@@ -643,7 +674,6 @@ function deletePoint(pointId, btn) {
         success: function(response) {
             console.log('Ответ сервера:', response);
             if (response.success) {
-                // Удаляем строку из таблицы
                 if ($row.length) {
                     $row.fadeOut(300, function() {
                         $(this).remove();
@@ -653,7 +683,6 @@ function deletePoint(pointId, btn) {
                     updatePointCounter();
                 }
                 
-                // Удаляем точку с плана
                 if ($point.length) {
                     $point.fadeOut(300, function() {
                         $(this).remove();
@@ -694,7 +723,6 @@ function updatePointCounter() {
 // ==========================================
 
 $(document).ready(function() {
-    // Перенастраиваем все кнопки на плане
     $('.delete-point').each(function() {
         var pointId = $(this).data('point-id');
         if (pointId) {
@@ -702,7 +730,6 @@ $(document).ready(function() {
         }
     });
     
-    // Перенастраиваем все кнопки в таблице
     $('#pointsTable .btn-danger').each(function() {
         var $row = $(this).closest('tr');
         var pointId = $row.data('point-id');
@@ -713,7 +740,6 @@ $(document).ready(function() {
     
     console.log('✅ Все кнопки удаления настроены!');
     
-    // На случай, если кнопки добавлены динамически
     $(document).on('click', '.delete-point', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -729,14 +755,11 @@ $(document).ready(function() {
 // ==========================================
 
 function printFloorplan() {
-    // Показываем скрытые элементы для печати
     $('.print-header, .print-legend, .print-footer').show();
     
-    // Небольшая задержка для применения стилей
     setTimeout(function() {
         window.print();
         
-        // Скрываем обратно после печати
         setTimeout(function() {
             $('.print-header, .print-legend, .print-footer').hide();
         }, 500);
