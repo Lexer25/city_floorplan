@@ -29,7 +29,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <?php if (!empty($points)): ?>
+                            <?php 
+							
+							if (!empty($points)): ?>
                                 <?php 
                                 $highlightPointId = isset($highlightData) && $highlightData ? $highlightData['id_point'] : null;
                                 $relatedIds = isset($relatedIds) ? $relatedIds : array();
@@ -81,11 +83,12 @@
                                         </td>
                                         <td>
                                             <!-- Кнопка "Найти на плане" -->
-                                            <?php if ($point['id_dev']): ?>
+                                            <?php 
+											//echo Debug::vars('85', $point);exit;
+											if ($point['id_dev']): ?>
                                                 <a href="<?php echo URL::site('floorplan/findDevice?id_dev=' . $point['id_dev']); ?>" 
                                                    class="btn btn-xs btn-primary" 
-                                                   title="Найти устройство на плане"
-                                                   target="_blank">
+                                                   title="Найти устройство на плане">
                                                     <span class="glyphicon glyphicon-search"></span>
                                                 </a>
                                             <?php else: ?>
@@ -93,10 +96,11 @@
                                                     <span class="glyphicon glyphicon-search"></span>
                                                 </button>
                                             <?php endif; ?>
+                                            
                                             <?php if ($isHighlighted): ?>
-                                                <span class="glyphicon glyphicon-star" style="color: #ff9800;" title="Искомое устройство"></span>
+                                                <span class="glyphicon glyphicon-star" style="color: #ff9800; margin-left: 5px;" title="Искомое устройство"></span>
                                             <?php elseif ($isRelated): ?>
-                                                <span class="glyphicon glyphicon-link" style="color: #ff9800;" title="Связанное устройство"></span>
+                                                <span class="glyphicon glyphicon-link" style="color: #ff9800; margin-left: 5px;" title="Связанное устройство"></span>
                                             <?php endif; ?>
                                         </td>
                                     </tr>

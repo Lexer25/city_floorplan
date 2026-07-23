@@ -260,7 +260,7 @@ class Model_Floorplanm extends Model
                 LEFT JOIN device d ON fp.id_dev = d.id_dev
                 WHERE fp.id_floorplan = ' . intval($floorplanId) . '
                 ORDER BY fp.point_type, fp.label';
-
+//echo Debug::vars('263', $sql);exit;
         $query = DB::query(Database::SELECT, $sql)
             ->execute($this->db)
             ->as_array();
