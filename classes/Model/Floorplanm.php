@@ -534,24 +534,24 @@ class Model_Floorplanm extends Model
             $labelForDb = iconv('UTF-8', 'Windows-1251//IGNORE', $label);
             $labelForDb = addslashes($labelForDb);
             $point_type_escaped = addslashes($point_type);
+			
+			
 
             $sql = "INSERT INTO floorplan_point (id_floorplan, x_pos, y_pos, id_dev, point_type, label)
                     VALUES (" . intval($floorplanId) . ", " . floatval($x) . ", " . floatval($y) . ", 
                             " . intval($deviceId) . ", '{$point_type_escaped}', '{$labelForDb}')";
-            
             DB::query(Database::INSERT, $sql)->execute($this->db);
             
-            $lastIdResult = DB::query(Database::SELECT, "SELECT MAX(id_point) as last_id FROM floorplan_point")
-                ->execute($this->db)
-                ->as_array();
-            
-            $lastId = $lastIdResult[0]['LAST_ID'];
+            $lastIdResult = DB::query(Database::SELECT, 'SELECT GEN_ID(GEN_FLOORPLAN_POINT_ID, 0) as gen FROM RDB$DATABASE')->execute($this->db);
+ 
+           
+            $lastId = $lastIdResult[0]['GEN'];
             
             Kohana::$log->add(Log::INFO, 'Point added: id_point=' . $lastId . ', id_dev=' . $deviceId);
             
             return $lastId;
         } catch (Exception $e) {
-            Kohana::$log->add(Log::ERROR, 'Error adding point: ' . $e->getMessage());
+            Kohana::$log->add(Log::ERROR, '554 Error adding point: ' . $e->getMessage());
             return false;
         }
     }
