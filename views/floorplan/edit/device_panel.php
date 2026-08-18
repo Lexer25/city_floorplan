@@ -29,7 +29,7 @@
         border-right: none;
         border-radius: 4px 0 0 4px;
         box-shadow: -2px 0 10px rgba(0,0,0,0.1);
-        max-height: 70vh;
+        max-height: 80vh;
         display: flex;
         flex-direction: column;
         transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -47,7 +47,7 @@
         </div>
         
         <!-- Подсказка -->
-        <div style="padding: 5px 10px; background: #f0f8ff; border-bottom: 1px solid #d9edf7; font-size: 11px; color: #31708f;">
+        <div style="padding: 5px 10px; background: #f0f8ff; border-bottom: 1px solid #d9edf7; font-size: 11px; color: #31708f; flex-shrink: 0;">
             <span class="glyphicon glyphicon-info-sign"></span>
             Перетащите устройство на план, чтобы добавить
         </div>
@@ -66,10 +66,10 @@
             </li>
         </ul>
         
-        <!-- Содержимое вкладок -->
-        <div class="tab-content" style="flex: 1; overflow: hidden; padding: 5px;">
+        <!-- Содержимое вкладок с прокруткой -->
+        <div class="tab-content" style="flex: 1; overflow: hidden; padding: 5px; min-height: 0;">
             <!-- Считыватели -->
-            <div class="tab-pane active" id="tabReaders" style="height: 100%; overflow-y: auto; padding: 5px;">
+            <div class="tab-pane active" id="tabReaders" style="height: 100%; overflow-y: auto; padding: 5px; max-height: 45vh;">
                 <?php if (!empty($readers)): ?>
                     <?php 
                     $iconPath = URL::base() . 'media/floorplan/icons/';
@@ -97,7 +97,7 @@
             </div>
             
             <!-- Контроллеры -->
-            <div class="tab-pane" id="tabControllers" style="height: 100%; overflow-y: auto; padding: 5px;">
+            <div class="tab-pane" id="tabControllers" style="height: 100%; overflow-y: auto; padding: 5px; max-height: 45vh;">
                 <?php if (!empty($controllers)): ?>
                     <?php 
                     $iconPath = URL::base() . 'media/floorplan/icons/';
