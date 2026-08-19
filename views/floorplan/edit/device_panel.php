@@ -1,7 +1,7 @@
 <!-- ========================================== -->
 <!-- БОКОВАЯ ПАНЕЛЬ С УСТРОЙСТВАМИ              -->
 <!-- ========================================== -->
-<div id="devicePanelWrapper" style="position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 100; display: flex; align-items: center;">
+<div id="devicePanelWrapper" style="position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 100; display: flex; align-items: center; cursor: move;">
     
     <div id="panelAnchor" onclick="toggleDevicePanel()" style="
         width: 32px;
@@ -35,14 +35,28 @@
         transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         transform: translateX(0);
         margin-right: -1px;
+        cursor: default;
     ">
-        <div style="background: #337ab7; color: #fff; padding: 8px 12px; border-radius: 4px 0 0 0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+        <!-- Заголовок с drag-ручкой -->
+        <div id="panelDragHandle" style="
+            background: #337ab7; 
+            color: #fff; 
+            padding: 8px 12px; 
+            border-radius: 4px 0 0 0; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-shrink: 0;
+            cursor: move;
+            user-select: none;
+        ">
             <strong style="font-size: 13px;">
                 <span class="glyphicon glyphicon-list"></span> Доступные устройства
             </strong>
-            <span style="font-size: 11px; opacity: 0.7;">
+            <span style="font-size: 11px; opacity: 0.7; display: flex; align-items: center; gap: 8px;">
                 <?php echo count($readers) + count($controllers); ?>
                 <span style="color: #999; font-size: 10px; margin-left: 3px;">(свободны)</span>
+                <span style="font-size: 10px; opacity: 0.5; cursor: move;">⠿</span>
             </span>
         </div>
         

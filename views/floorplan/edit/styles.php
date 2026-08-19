@@ -645,4 +645,31 @@ tr.success td {
         text-align: center !important;
     }
 }
+
+/* Стили для перетаскиваемой панели */
+#devicePanelWrapper.dragging {
+    opacity: 0.9;
+    cursor: move;
+}
+
+#devicePanelWrapper.dragging #devicePanel {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+}
+
+#panelDragHandle {
+    cursor: move;
+}
+
+#panelDragHandle:hover {
+    background: #286090;
+}
+
+#panelDragHandle .glyphicon {
+    transition: transform 0.3s ease;
+}
+
+#panelDragHandle:hover .glyphicon {
+    transform: scale(1.1);
+}
+
 </style>

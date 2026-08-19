@@ -567,7 +567,8 @@ function savePointPosition(pointId, x, y) {
 
 function saveClickPoint() {
     var deviceId = $('#clickDeviceId').val();
-    var pointType = $('#clickPointType').val();
+	//var draggedData = window.draggedDeviceData || null;
+    var pointType = window.draggedDeviceData || null;
     var label = $('#clickLabel').val();
     var floorplanId = <?php echo $current_floor_id; ?>;
     
@@ -806,4 +807,72 @@ $('<style>')
         '}'
     )
     .appendTo('head');
+	
+	
+	
+// ==========================================
+// ПЕРЕТАСКИВАНИЕ ПАНЕЛИ УСТРОЙСТВ
+// ==========================================
+
+$(document).ready(function() {
+    var $panelWrapper = $('#devicePanelWrapper');
+    var $panel = $('#devicePanel');
+    var $dragHandle = $('#panelDragHandle');
+    
+    // Делаем панель перетаскиваемой
+    $panelWrapper.draggable({
+        handle: '#panelDragHandle, #panelAnchor',
+        containment: 'window',
+        cursor: 'move',
+        start: function(e, ui) {
+            // При начале перетаскивания убираем transition, чтобы не было задержки
+            $panel.css('transition', 'none');
+        },
+        stop: function(e, ui) {
+            // Возвращаем transition после перетаскивания
+            setTimeout(function() {
+                $panel.css('transition', 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)');
+            }, 100);
+        }
+    });
+    
+    // Сохраняем позицию панели в localStorage
+    $panelWrapper.on('dragstop', function(e, ui) {
+        var position = {
+            top: ui.position.top,
+            left: ui.position.left
+        };
+        try {
+            localStorage.setItem('floorplan_device_panel_position', JSON.stringify(position));
+        } catch(e) {
+            // Игнорируем ошибки localStorage
+        }
+    });
+    
+    // Восстанавливаем позицию панели
+    try {
+        var savedPosition = localStorage.getItem('floorplan_device_panel_position');
+        if (savedPosition) {
+            var position = JSON.parse(savedPosition);
+            // Проверяем, что позиция в пределах окна
+            var maxTop = $(window).height() - $panelWrapper.outerHeight();
+            var maxLeft = $(window).width() - $panelWrapper.outerWidth();
+            
+            position.top = Math.max(0, Math.min(maxTop, position.top));
+            position.left = Math.max(0, Math.min(maxLeft, position.left));
+            
+            $panelWrapper.css({
+                'top': position.top + 'px',
+                'left': position.left + 'px',
+                'transform': 'none'
+            });
+            // Убираем центрирование
+            $panelWrapper.css('transform', 'none');
+        }
+    } catch(e) {
+        // Игнорируем ошибки
+    }
+});
+
+
 </script>

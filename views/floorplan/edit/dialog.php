@@ -33,13 +33,7 @@
             </select>
         </div>
         
-        <div class="form-group">
-            <label>Тип точки</label>
-            <select class="form-control" id="clickPointType" style="width: 100%;">
-                <option value="reader">📡 Считыватель</option>
-                <option value="controller">⚙️ Контроллер</option>
-            </select>
-        </div>
+       
         
         <div class="form-group">
             <label>Метка (название)</label>
