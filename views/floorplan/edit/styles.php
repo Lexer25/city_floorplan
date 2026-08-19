@@ -672,4 +672,125 @@ tr.success td {
     transform: scale(1.1);
 }
 
+
+/* ========================================== */
+/* СТИЛИ ДЛЯ ПЛАВАЮЩЕЙ ПАНЕЛИ УСТРОЙСТВ       */
+/* ========================================== */
+
+#devicePanelWrapper {
+    z-index: 9999 !important;
+    pointer-events: none;
+}
+
+#devicePanelWrapper #devicePanel,
+#devicePanelWrapper #panelAnchor {
+    pointer-events: all;
+}
+
+#devicePanelWrapper.dragging {
+    z-index: 10001 !important;
+}
+
+#devicePanelWrapper.dragging #devicePanel {
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3) !important;
+}
+
+#panelDragHandle {
+    cursor: move;
+    transition: background 0.2s ease;
+}
+
+#panelDragHandle:hover {
+    background: #286090;
+}
+
+#panelDragHandle .glyphicon {
+    transition: transform 0.3s ease;
+}
+
+#panelDragHandle:hover .glyphicon {
+    transform: scale(1.1);
+}
+
+/* Анимация появления панели */
+@keyframes panelSlideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+#devicePanel {
+    animation: panelSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Стили для фильтра */
+.filter-type-btn {
+    transition: all 0.2s ease;
+}
+
+.filter-type-btn:hover {
+    opacity: 0.8;
+}
+
+.filter-type-btn.active {
+    border-color: #337ab7;
+}
+
+.filter-type-btn.active:hover {
+    opacity: 0.9;
+}
+
+#deviceFilterInput:focus {
+    border-color: #337ab7 !important;
+    box-shadow: 0 0 5px rgba(51, 122, 183, 0.3);
+}
+
+#clearDeviceFilter {
+    transition: all 0.2s ease;
+}
+
+#clearDeviceFilter:hover {
+    opacity: 0.8;
+    transform: scale(1.05);
+}
+
+.device-item {
+    transition: all 0.2s ease;
+}
+
+.device-item:hover {
+    transform: translateX(-3px);
+}
+
+.device-item.selected {
+    border-left-color: #ff9800 !important;
+    background: #e8f0fe !important;
+}
+
+.device-item.reader-item.selected {
+    background: #e8f0fe !important;
+}
+
+.device-item.controller-item.selected {
+    background: #fff3e0 !important;
+}
+
+#readersEmptyFilter, #controllersEmptyFilter {
+    padding: 20px 10px;
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+}
+
+#readersEmptyFilter .glyphicon, #controllersEmptyFilter .glyphicon {
+    font-size: 20px;
+    display: block;
+    margin-bottom: 5px;
+    color: #ccc;
+}
 </style>

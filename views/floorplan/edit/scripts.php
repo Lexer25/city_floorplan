@@ -811,68 +811,379 @@ $('<style>')
 	
 	
 // ==========================================
-// ПЕРЕТАСКИВАНИЕ ПАНЕЛИ УСТРОЙСТВ
+// ПЕРЕТАСКИВАНИЕ ПАНЕЛИ УСТРОЙСТВ С СОХРАНЕНИЕМ ПОЗИЦИИ
 // ==========================================
 
 $(document).ready(function() {
     var $panelWrapper = $('#devicePanelWrapper');
     var $panel = $('#devicePanel');
     var $dragHandle = $('#panelDragHandle');
+    var isDragging = false;
+    var dragOffsetX = 0;
+    var dragOffsetY = 0;
     
-    // Делаем панель перетаскиваемой
-    $panelWrapper.draggable({
-        handle: '#panelDragHandle, #panelAnchor',
-        containment: 'window',
-        cursor: 'move',
-        start: function(e, ui) {
-            // При начале перетаскивания убираем transition, чтобы не было задержки
-            $panel.css('transition', 'none');
-        },
-        stop: function(e, ui) {
-            // Возвращаем transition после перетаскивания
-            setTimeout(function() {
-                $panel.css('transition', 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)');
-            }, 100);
+    // Восстанавливаем сохраненную позицию
+    restorePanelPosition();
+    
+    // Функция восстановления позиции
+    function restorePanelPosition() {
+        try {
+            var savedPosition = localStorage.getItem('floorplan_device_panel_position');
+            if (savedPosition) {
+                var position = JSON.parse(savedPosition);
+                // Проверяем, что позиция в пределах окна
+                var maxTop = $(window).height() - 100;
+                var maxLeft = $(window).width() - 100;
+                
+                position.top = Math.max(20, Math.min(maxTop, position.top));
+                position.left = Math.max(20, Math.min(maxLeft, position.left));
+                
+                $panelWrapper.css({
+                    'top': position.top + 'px',
+                    'left': position.left + 'px',
+                    'transform': 'none',
+                    'right': 'auto',
+                    'bottom': 'auto'
+                });
+            } else {
+                // Позиция по умолчанию - справа сверху
+                $panelWrapper.css({
+                    'top': '80px',
+                    'left': 'auto',
+                    'right': '20px',
+                    'transform': 'none'
+                });
+            }
+        } catch(e) {
+            // Игнорируем ошибки
         }
-    });
+    }
     
-    // Сохраняем позицию панели в localStorage
-    $panelWrapper.on('dragstop', function(e, ui) {
+    // Функция сохранения позиции
+    function savePanelPosition() {
+        var offset = $panelWrapper.offset();
         var position = {
-            top: ui.position.top,
-            left: ui.position.left
+            top: offset.top,
+            left: offset.left
         };
         try {
             localStorage.setItem('floorplan_device_panel_position', JSON.stringify(position));
         } catch(e) {
             // Игнорируем ошибки localStorage
         }
+    }
+    
+    // Начинаем перетаскивание
+    $dragHandle.on('mousedown', function(e) {
+        if (e.button !== 0) return; // Только левая кнопка
+        
+        var offset = $panelWrapper.offset();
+        dragOffsetX = e.pageX - offset.left;
+        dragOffsetY = e.pageY - offset.top;
+        isDragging = true;
+        
+        $panelWrapper.addClass('dragging');
+        $panel.css({
+            'transition': 'none',
+            'box-shadow': '0 8px 40px rgba(0,0,0,0.3)'
+        });
+        
+        e.preventDefault();
+        return false;
     });
     
-    // Восстанавливаем позицию панели
-    try {
-        var savedPosition = localStorage.getItem('floorplan_device_panel_position');
-        if (savedPosition) {
-            var position = JSON.parse(savedPosition);
-            // Проверяем, что позиция в пределах окна
-            var maxTop = $(window).height() - $panelWrapper.outerHeight();
-            var maxLeft = $(window).width() - $panelWrapper.outerWidth();
-            
-            position.top = Math.max(0, Math.min(maxTop, position.top));
-            position.left = Math.max(0, Math.min(maxLeft, position.left));
-            
-            $panelWrapper.css({
-                'top': position.top + 'px',
-                'left': position.left + 'px',
-                'transform': 'none'
+    // Перемещение
+    $(document).on('mousemove', function(e) {
+        if (!isDragging) return;
+        
+        var newLeft = e.pageX - dragOffsetX;
+        var newTop = e.pageY - dragOffsetY;
+        
+        // Ограничиваем перемещение в пределах окна
+        var maxLeft = $(window).width() - $panelWrapper.outerWidth();
+        var maxTop = $(window).height() - 50;
+        
+        newLeft = Math.max(0, Math.min(maxLeft, newLeft));
+        newTop = Math.max(0, Math.min(maxTop, newTop));
+        
+        $panelWrapper.css({
+            'left': newLeft + 'px',
+            'top': newTop + 'px',
+            'right': 'auto',
+            'bottom': 'auto',
+            'transform': 'none'
+        });
+        
+        e.preventDefault();
+    });
+    
+    // Завершение перетаскивания
+    $(document).on('mouseup', function(e) {
+        if (isDragging) {
+            isDragging = false;
+            $panelWrapper.removeClass('dragging');
+            $panel.css({
+                'transition': 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                'box-shadow': '0 4px 25px rgba(0,0,0,0.15)'
             });
-            // Убираем центрирование
-            $panelWrapper.css('transform', 'none');
+            savePanelPosition();
         }
-    } catch(e) {
-        // Игнорируем ошибки
+    });
+    
+    // При изменении размера окна корректируем позицию
+    $(window).on('resize', function() {
+        var offset = $panelWrapper.offset();
+        var maxLeft = $(window).width() - $panelWrapper.outerWidth();
+        var maxTop = $(window).height() - 50;
+        
+        if (offset.left > maxLeft) {
+            $panelWrapper.css('left', Math.max(0, maxLeft) + 'px');
+            savePanelPosition();
+        }
+        if (offset.top > maxTop) {
+            $panelWrapper.css('top', Math.max(0, maxTop) + 'px');
+            savePanelPosition();
+        }
+    });
+    
+    // Кнопка сворачивания/разворачивания
+    window.toggleDevicePanel = function() {
+        var $panel = $('#devicePanel');
+        var $anchorIcon = $('#anchorIcon');
+        var isVisible = $panel.css('opacity') !== '0' && $panel.css('transform') !== 'translateX(100%)';
+        
+        if (isVisible) {
+            $panel.css({
+                'transform': 'translateX(100%)',
+                'opacity': '0'
+            });
+            $anchorIcon.removeClass('glyphicon-chevron-right').addClass('glyphicon-chevron-left');
+            $('#panelAnchor').css('border-radius', '0 4px 4px 0');
+        } else {
+            $panel.css({
+                'transform': 'translateX(0)',
+                'opacity': '1'
+            });
+            $anchorIcon.removeClass('glyphicon-chevron-left').addClass('glyphicon-chevron-right');
+            $('#panelAnchor').css('border-radius', '4px 0 0 4px');
+        }
+    };
+});
+// ==========================================
+// ФИЛЬТРАЦИЯ УСТРОЙСТВ НА ПАНЕЛИ
+// ==========================================
+
+$(document).ready(function() {
+    var $filterInput = $('#deviceFilterInput');
+    var $clearBtn = $('#clearDeviceFilter');
+    var $filterTypeBtns = $('.filter-type-btn');
+    var currentTypeFilter = 'all';
+    var searchQuery = '';
+    
+    // Функция фильтрации
+    function filterDevices() {
+        var query = searchQuery.toLowerCase().trim();
+        var type = currentTypeFilter;
+        var $readers = $('#readersList .device-item');
+        var $controllers = $('#controllersList .device-item');
+        var readersVisible = 0;
+        var controllersVisible = 0;
+        
+        // Фильтруем считыватели
+        $readers.each(function() {
+            var $item = $(this);
+            var searchData = $item.data('device-search') || '';
+            var matchesQuery = query === '' || searchData.indexOf(query) !== -1;
+            var matchesType = type === 'all' || type === 'reader';
+            
+            if (matchesQuery && matchesType) {
+                $item.show();
+                readersVisible++;
+            } else {
+                $item.hide();
+            }
+        });
+        
+        // Фильтруем контроллеры
+        $controllers.each(function() {
+            var $item = $(this);
+            var searchData = $item.data('device-search') || '';
+            var matchesQuery = query === '' || searchData.indexOf(query) !== -1;
+            var matchesType = type === 'all' || type === 'controller';
+            
+            if (matchesQuery && matchesType) {
+                $item.show();
+                controllersVisible++;
+            } else {
+                $item.hide();
+            }
+        });
+        
+        // Показываем/скрываем сообщения "ничего не найдено"
+        var $readersEmpty = $('#readersEmptyFilter');
+        var $controllersEmpty = $('#controllersEmptyFilter');
+        var $noReadersMsg = $('#noReadersMsg');
+        var $noControllersMsg = $('#noControllersMsg');
+        
+        // Проверяем наличие элементов в списках
+        var hasReaders = $readers.length > 0;
+        var hasControllers = $controllers.length > 0;
+        
+        if (hasReaders) {
+            $noReadersMsg.hide();
+            if (readersVisible === 0) {
+                $readersEmpty.show();
+            } else {
+                $readersEmpty.hide();
+            }
+        } else {
+            $noReadersMsg.show();
+            $readersEmpty.hide();
+        }
+        
+        if (hasControllers) {
+            $noControllersMsg.hide();
+            if (controllersVisible === 0) {
+                $controllersEmpty.show();
+            } else {
+                $controllersEmpty.hide();
+            }
+        } else {
+            $noControllersMsg.show();
+            $controllersEmpty.hide();
+        }
+        
+        // Обновляем счетчики в заголовке
+        var totalVisible = readersVisible + controllersVisible;
+        $('#totalDevicesCount').text(totalVisible);
+        $('#filterAllCount').text(totalVisible);
+        $('#filterReaderCount').text(readersVisible);
+        $('#filterControllerCount').text(controllersVisible);
+        $('#readerTabCount').text(readersVisible);
+        $('#controllerTabCount').text(controllersVisible);
+        
+        // Показываем/скрываем кнопку сброса
+        if (query !== '' || type !== 'all') {
+            $clearBtn.show();
+        } else {
+            $clearBtn.hide();
+        }
     }
+    
+    // Обработчик ввода текста (с debounce)
+    var filterTimeout;
+    $filterInput.on('input', function() {
+        clearTimeout(filterTimeout);
+        searchQuery = $(this).val();
+        filterTimeout = setTimeout(filterDevices, 200);
+    });
+    
+    // Обработчик кнопок быстрого фильтра по типу
+    $filterTypeBtns.on('click', function() {
+        var type = $(this).data('filter');
+        
+        // Обновляем активную кнопку
+        $filterTypeBtns.removeClass('active').css({
+            'background': '#fff',
+            'color': '#333'
+        });
+        $(this).addClass('active').css({
+            'background': '#337ab7',
+            'color': '#fff'
+        });
+        
+        currentTypeFilter = type;
+        filterDevices();
+    });
+    
+    // Обработчик кнопки сброса фильтра
+    $clearBtn.on('click', function() {
+        $filterInput.val('');
+        searchQuery = '';
+        currentTypeFilter = 'all';
+        
+        // Сбрасываем активную кнопку
+        $filterTypeBtns.removeClass('active').css({
+            'background': '#fff',
+            'color': '#333'
+        });
+        $filterTypeBtns.filter('[data-filter="all"]').addClass('active').css({
+            'background': '#337ab7',
+            'color': '#fff'
+        });
+        
+        filterDevices();
+        $filterInput.focus();
+    });
+    
+    // Обработчик клавиши Escape для сброса фильтра
+    $filterInput.on('keydown', function(e) {
+        if (e.key === 'Escape') {
+            $clearBtn.click();
+        }
+    });
+    
+    // Сохраняем состояние фильтра при переключении вкладок
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+        // Обновляем фильтр при переключении вкладки
+        filterDevices();
+    });
+    
+    // Инициализация фильтрации при загрузке страницы
+    setTimeout(filterDevices, 300);
+    
+    // Обновляем фильтр при изменении размера панели
+    var resizeTimeout;
+    $(window).on('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(filterDevices, 200);
+    });
 });
 
+// ==========================================
+// ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ ФИЛЬТРА
+// ==========================================
 
+$('<style>')
+    .text(
+        '.filter-type-btn {\n' +
+        '    transition: all 0.2s ease;\n' +
+        '}\n' +
+        '.filter-type-btn:hover {\n' +
+        '    opacity: 0.8;\n' +
+        '}\n' +
+        '.filter-type-btn.active {\n' +
+        '    border-color: #337ab7;\n' +
+        '}\n' +
+        '.filter-type-btn.active:hover {\n' +
+        '    opacity: 0.9;\n' +
+        '}\n' +
+        '#deviceFilterInput:focus {\n' +
+        '    border-color: #337ab7 !important;\n' +
+        '    box-shadow: 0 0 5px rgba(51, 122, 183, 0.3);\n' +
+        '}\n' +
+        '#clearDeviceFilter {\n' +
+        '    transition: all 0.2s ease;\n' +
+        '}\n' +
+        '#clearDeviceFilter:hover {\n' +
+        '    opacity: 0.8;\n' +
+        '    transform: scale(1.05);\n' +
+        '}\n' +
+        '.device-item.hidden-by-filter {\n' +
+        '    display: none !important;\n' +
+        '}\n' +
+        '#readersEmptyFilter, #controllersEmptyFilter {\n' +
+        '    padding: 20px 10px;\n' +
+        '    text-align: center;\n' +
+        '    color: #999;\n' +
+        '    font-size: 12px;\n' +
+        '}\n' +
+        '#readersEmptyFilter .glyphicon, #controllersEmptyFilter .glyphicon {\n' +
+        '    font-size: 20px;\n' +
+        '    display: block;\n' +
+        '    margin-bottom: 5px;\n' +
+        '    color: #ccc;\n' +
+        '}'
+    )
+    .appendTo('head');
 </script>
