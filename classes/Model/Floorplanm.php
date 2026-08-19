@@ -254,12 +254,26 @@ class Model_Floorplanm extends Model
      */
     public function getPointsByFloorplan($floorplanId)
     {
-        $sql = 'SELECT fp.id_point, fp.x_pos, fp.y_pos, fp.id_dev, fp.point_type, fp.label,
-                       d.name as device_name, d.id_reader
-                FROM floorplan_point fp
-                LEFT JOIN device d ON fp.id_dev = d.id_dev
-                WHERE fp.id_floorplan = ' . intval($floorplanId) . '
-                ORDER BY fp.point_type, fp.label';
+			
+		$sql = 'SELECT 
+				fp.id_point, 
+				fp.x_pos, 
+				fp.y_pos, 
+				fp.id_dev, 
+				CASE 
+					WHEN d.id_reader = 0 OR d.id_reader = 1 THEN \'reader\'
+					WHEN d.id_reader IS NULL THEN \'controller\'
+					ELSE fp.point_type  -- сохраняем исходное значение для других случаев
+				END AS point_type, 
+				fp.label,
+				d.name as device_name, 
+				d.id_reader
+			FROM floorplan_point fp
+			LEFT JOIN device d ON fp.id_dev = d.id_dev
+			WHERE fp.id_floorplan = ' . intval($floorplanId) . '
+			ORDER BY fp.point_type, fp.label';
+
+		
 //echo Debug::vars('263', $sql);exit;
         $query = DB::query(Database::SELECT, $sql)
             ->execute($this->db)
@@ -502,7 +516,8 @@ class Model_Floorplanm extends Model
      */
     public function addPoint($floorplanId, $x, $y, $deviceId, $point_type = 'reader', $label = '')
     {
-        try {
+		Kohana::$log->add(Log::INFO, '519=' . Debug::vars($floorplanId, $x, $y, $deviceId, $point_type, $label));
+	   try {
             // Проверяем, не занято ли устройство
             if ($this->isDeviceUsed($deviceId, $floorplanId)) {
                 Kohana::$log->add(Log::ERROR, 'Device already used: id_dev=' . $deviceId);
@@ -540,6 +555,8 @@ class Model_Floorplanm extends Model
             $sql = "INSERT INTO floorplan_point (id_floorplan, x_pos, y_pos, id_dev, point_type, label)
                     VALUES (" . intval($floorplanId) . ", " . floatval($x) . ", " . floatval($y) . ", 
                             " . intval($deviceId) . ", '{$point_type_escaped}', '{$labelForDb}')";
+							
+							Kohana::$log->add(Log::INFO, '559=' . $sql);
             DB::query(Database::INSERT, $sql)->execute($this->db);
             
             $lastIdResult = DB::query(Database::SELECT, 'SELECT GEN_ID(GEN_FLOORPLAN_POINT_ID, 0) as gen FROM RDB$DATABASE')->execute($this->db);

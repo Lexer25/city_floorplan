@@ -506,21 +506,94 @@ function showPointInfo($point) {
     var pointId = $point.data('point-id');
     var deviceId = $point.data('device-id');
     var label = $point.find('.point-label').text() || 'Без метки';
-    var xPos = parseFloat($point.css('left'));
-    var yPos = parseFloat($point.css('top'));
+    
+    // Получаем координаты из атрибута style
+    var style = $point.attr('style');
+    var leftMatch = style.match(/left:\s*([\d.,]+)%/);
+    var topMatch = style.match(/top:\s*([\d.,]+)%/);
+    
+    var xPos = 0;
+    var yPos = 0;
+    
+    if (leftMatch) {
+        // Заменяем запятую на точку и парсим
+        xPos = parseFloat(leftMatch[1].replace(',', '.'));
+    }
+    if (topMatch) {
+        yPos = parseFloat(topMatch[1].replace(',', '.'));
+    }
+    
+    // Если не найдено в style, пробуем через css()
+    if (xPos === 0 && yPos === 0) {
+        var leftVal = $point.css('left');
+        var topVal = $point.css('top');
+        xPos = parseFloat(leftVal.replace('%', '').replace(',', '.'));
+        yPos = parseFloat(topVal.replace('%', '').replace(',', '.'));
+    }
+    
+    // Если координаты все еще невалидны или больше 100%, пытаемся получить из data-атрибутов
+    if (isNaN(xPos) || xPos === 0 || xPos > 100) {
+        var dataX = $point.data('x-pos');
+        if (dataX !== undefined) {
+            xPos = parseFloat(dataX.toString().replace(',', '.'));
+        }
+    }
+    if (isNaN(yPos) || yPos === 0 || yPos > 100) {
+        var dataY = $point.data('y-pos');
+        if (dataY !== undefined) {
+            yPos = parseFloat(dataY.toString().replace(',', '.'));
+        }
+    }
+    
+    // Если все еще > 100%, значит это px, конвертируем в %
+    if (xPos > 100) {
+        var parentWidth = $('#floorplanCanvas').width();
+        if (parentWidth > 0) {
+            xPos = (xPos / parentWidth) * 100;
+        }
+    }
+    if (yPos > 100) {
+        var parentHeight = $('#floorplanCanvas').height();
+        if (parentHeight > 0) {
+            yPos = (yPos / parentHeight) * 100;
+        }
+    }
+    
+    // Ограничиваем значения 0-100% и округляем до 1 знака
+    xPos = Math.max(0, Math.min(100, Math.round(xPos * 10) / 10));
+    yPos = Math.max(0, Math.min(100, Math.round(yPos * 10) / 10));
     
     $tooltip.html(
         'ID: ' + pointId + 
         ' | Устр: ' + (deviceId || '—') + 
-        ' | X: ' + Math.round(xPos) + '%' + 
-        ' | Y: ' + Math.round(yPos) + '%' +
+        ' | X: ' + xPos + '%' + 
+        ' | Y: ' + yPos + '%' +
         ' | ' + label
     );
     
     var offset = $point.offset();
+    var tooltipLeft = offset.left + 30;
+    var tooltipTop = offset.top - 10;
+    
+    // Не даем подсказке выйти за пределы окна
+    var tooltipWidth = $tooltip.outerWidth();
+    var tooltipHeight = $tooltip.outerHeight();
+    var windowWidth = $(window).width();
+    var windowHeight = $(window).height();
+    
+    if (tooltipLeft + tooltipWidth > windowWidth) {
+        tooltipLeft = offset.left - tooltipWidth - 10;
+    }
+    if (tooltipTop + tooltipHeight > windowHeight) {
+        tooltipTop = windowHeight - tooltipHeight - 10;
+    }
+    if (tooltipTop < 0) {
+        tooltipTop = 10;
+    }
+    
     $tooltip.css({
-        left: (offset.left + 30) + 'px',
-        top: (offset.top - 10) + 'px',
+        left: tooltipLeft + 'px',
+        top: tooltipTop + 'px',
         display: 'block'
     });
 }
