@@ -20,20 +20,11 @@
         
         <div class="form-group">
             <label>Устройство <span class="text-danger">*</span></label>
-            <select class="form-control" id="clickDeviceId" required style="width: 100%;">
-                <option value="">Выберите устройство</option>
-                <?php foreach ($allDevices as $device): ?>
-                    <option value="<?php echo $device['id_dev']; ?>" <?php echo $device['is_used'] ? 'disabled style="color:#999;background:#f5f5f5;"' : ''; ?>>
-                        <?php echo htmlspecialchars($device['name']); ?> (id=<?php echo $device['id_dev']; ?>)
-                        <?php if ($device['is_used']): ?>
-                            ✓ (используется)
-                        <?php endif; ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+            <input type="text" class="form-control" id="clickDeviceName" readonly style="background: #f5f5f5; width: 100%; font-weight: bold; color: #337ab7;">
+            <input type="hidden" id="clickDeviceId" value="">
+            <input type="hidden" id="clickPointType" value="">
+            <small class="text-muted">Устройство выбрано при перетаскивании на план</small>
         </div>
-        
-       
         
         <div class="form-group">
             <label>Метка (название)</label>

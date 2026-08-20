@@ -42,55 +42,48 @@ $(document).ready(function() {
     }, 600);
     <?php endif; ?>
     
-    // ==========================================
-    // ИНИЦИАЛИЗАЦИЯ JQUERY UI DIALOG
-    // ==========================================
-    $('#clickAddPointDialog').dialog({
-        autoOpen: false,
-        modal: true,
-        width: 450,
-        height: 'auto',
-        resizable: false,
-        draggable: true,
-        closeOnEscape: true,
-        dialogClass: 'click-point-dialog',
-        buttons: [
-            {
-                text: 'Отмена',
-                class: 'btn btn-default',
-                click: function() {
-                    $(this).dialog('close');
-                }
-            },
-            {
-                text: 'Добавить точку',
-                class: 'btn btn-success',
-                id: 'clickSavePointBtn',
-                click: function() {
-                    saveClickPoint();
-                }
+// ==========================================
+// ИНИЦИАЛИЗАЦИЯ JQUERY UI DIALOG
+// ==========================================
+$('#clickAddPointDialog').dialog({
+    autoOpen: false,
+    modal: true,
+    width: 450,
+    height: 'auto',
+    resizable: false,
+    draggable: true,
+    closeOnEscape: true,
+    dialogClass: 'click-point-dialog',
+    buttons: [
+        {
+            text: 'Отмена',
+            class: 'btn btn-default',
+            click: function() {
+                $(this).dialog('close');
             }
-        ],
-        open: function() {
-            setTimeout(function() {
-                $('#clickLabel').focus();
-            }, 300);
+        },
+        {
+            text: 'Добавить точку',
+            class: 'btn btn-success',
+            id: 'clickSavePointBtn',
+            click: function() {
+                saveClickPoint();
+            }
         }
-    });
-    
-    $('#clickLabel').on('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveClickPoint();
-        }
-    });
-    
-    $('#clickDeviceId').on('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveClickPoint();
-        }
-    });
+    ],
+    open: function() {
+        setTimeout(function() {
+            $('#clickLabel').focus();
+        }, 300);
+    }
+});
+
+$('#clickLabel').on('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveClickPoint();
+    }
+});
     
     // ==========================================
     // ВАЛИДАЦИЯ ФОРМ
@@ -396,10 +389,14 @@ $(document).ready(function() {
     var draggedDeviceName = null;
     
     $('.draggable-device').on('mousedown', function(e) {
+        e.preventDefault();
+        
         draggedDevice = $(this);
         draggedDeviceId = $(this).data('device-id');
         draggedDeviceType = $(this).data('device-type');
         draggedDeviceName = $(this).data('device-name');
+        
+        console.log('Drag started:', draggedDeviceId, draggedDeviceName, draggedDeviceType);
         
         $(this).addClass('dragging-device');
         
@@ -466,16 +463,28 @@ $(document).ready(function() {
                     
                     clickX = x;
                     clickY = y;
+                    
+                    // Заполняем поля диалога
                     $('#clickX').val(Math.round(x) + '%');
                     $('#clickY').val(Math.round(y) + '%');
+                    
+                    // Устанавливаем информацию об устройстве
+                    var deviceDisplayName = draggedDeviceName + ' (id=' + draggedDeviceId + ')';
                     $('#clickDeviceId').val(draggedDeviceId);
-                    $('#clickLabel').val(draggedDeviceName || '');
+                    $('#clickDeviceName').val(deviceDisplayName);
                     $('#clickPointType').val(draggedDeviceType === 'reader' ? 'reader' : 'controller');
                     
+                    // Автоматически заполняем метку названием устройства
+                    $('#clickLabel').val(draggedDeviceName || '');
+                    
+                    console.log('Device set:', draggedDeviceId, draggedDeviceName);
+                    
+                    // Если панель видна, сворачиваем её
                     if (panelVisible) {
                         toggleDevicePanel();
                     }
                     
+                    // Открываем диалог
                     $('#clickAddPointDialog').dialog('open');
                 }
             }
@@ -639,6 +648,78 @@ function savePointPosition(pointId, x, y) {
 }
 
 function saveClickPoint() {
+    var deviceId = $('#clickDeviceId').val();
+    var pointType = $('#clickPointType').val();
+    var label = $('#clickLabel').val();
+    var floorplanId = <?php echo $current_floor_id; ?>;
+    
+    if (!deviceId) {
+        showNotification('Пожалуйста, выберите устройство, перетащив его на план', 'warning');
+        return;
+    }
+    
+    if (clickX === 0 && clickY === 0) {
+        showNotification('Ошибка: координаты не заданы', 'error');
+        return;
+    }
+    
+    var dialog = $('#clickAddPointDialog');
+    var buttons = dialog.dialog('option', 'buttons');
+    
+    if (buttons && buttons[1]) {
+        buttons[1].text = '<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Добавление...';
+        buttons[1].disabled = true;
+        dialog.dialog('option', 'buttons', buttons);
+    }
+    
+    $.ajax({
+        url: '<?php echo URL::site("floorplan/addPointAjax"); ?>',
+        type: 'POST',
+        data: {
+            floorplan_id: floorplanId,
+            x: clickX,
+            y: clickY,
+            device_id: deviceId,
+            point_type: pointType,
+            label: label || ''
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                dialog.dialog('close');
+                showNotification('Точка успешно добавлена!', 'success');
+                
+                var countText = $('#pointCountLabel').text();
+                var count = parseInt(countText.replace('Точек: ', ''));
+                if (!isNaN(count)) {
+                    $('#pointCountLabel').text('Точек: ' + (count + 1));
+                }
+                
+                setTimeout(function() {
+                    location.reload();
+                }, 500);
+            } else {
+                showNotification('Ошибка при добавлении точки: ' + (response.error || 'Неизвестная ошибка'), 'error');
+                if (buttons && buttons[1]) {
+                    buttons[1].text = 'Добавить точку';
+                    buttons[1].disabled = false;
+                    dialog.dialog('option', 'buttons', buttons);
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            showNotification('Ошибка при отправке запроса: ' + error, 'error');
+            
+            if (buttons && buttons[1]) {
+                buttons[1].text = 'Добавить точку';
+                buttons[1].disabled = false;
+                dialog.dialog('option', 'buttons', buttons);
+            }
+        }
+    });
+}
+
+function _saveClickPoint() {
     var deviceId = $('#clickDeviceId').val();
 	//var draggedData = window.draggedDeviceData || null;
     var pointType = window.draggedDeviceData || null;
