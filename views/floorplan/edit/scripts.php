@@ -42,48 +42,48 @@ $(document).ready(function() {
     }, 600);
     <?php endif; ?>
     
-// ==========================================
-// ИНИЦИАЛИЗАЦИЯ JQUERY UI DIALOG
-// ==========================================
-$('#clickAddPointDialog').dialog({
-    autoOpen: false,
-    modal: true,
-    width: 450,
-    height: 'auto',
-    resizable: false,
-    draggable: true,
-    closeOnEscape: true,
-    dialogClass: 'click-point-dialog',
-    buttons: [
-        {
-            text: 'Отмена',
-            class: 'btn btn-default',
-            click: function() {
-                $(this).dialog('close');
+    // ==========================================
+    // ИНИЦИАЛИЗАЦИЯ JQUERY UI DIALOG
+    // ==========================================
+    $('#clickAddPointDialog').dialog({
+        autoOpen: false,
+        modal: true,
+        width: 450,
+        height: 'auto',
+        resizable: false,
+        draggable: true,
+        closeOnEscape: true,
+        dialogClass: 'click-point-dialog',
+        buttons: [
+            {
+                text: 'Отмена',
+                class: 'btn btn-default',
+                click: function() {
+                    $(this).dialog('close');
+                }
+            },
+            {
+                text: 'Добавить точку',
+                class: 'btn btn-success',
+                id: 'clickSavePointBtn',
+                click: function() {
+                    saveClickPoint();
+                }
             }
-        },
-        {
-            text: 'Добавить точку',
-            class: 'btn btn-success',
-            id: 'clickSavePointBtn',
-            click: function() {
-                saveClickPoint();
-            }
+        ],
+        open: function() {
+            setTimeout(function() {
+                $('#clickLabel').focus();
+            }, 300);
         }
-    ],
-    open: function() {
-        setTimeout(function() {
-            $('#clickLabel').focus();
-        }, 300);
-    }
-});
+    });
 
-$('#clickLabel').on('keydown', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        saveClickPoint();
-    }
-});
+    $('#clickLabel').on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveClickPoint();
+        }
+    });
     
     // ==========================================
     // ВАЛИДАЦИЯ ФОРМ
@@ -388,6 +388,18 @@ $(document).ready(function() {
     var draggedDeviceType = null;
     var draggedDeviceName = null;
     
+    // Создаем элемент для отладки
+    var $debugInfo = $('<div id="dragDebugInfo" style="position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #0f0; padding: 10px 20px; border-radius: 6px; font-family: monospace; font-size: 13px; z-index: 99999; display: none; min-width: 350px; text-align: center; border: 1px solid #0f0; box-shadow: 0 0 20px rgba(0,255,0,0.3);"></div>');
+    $('body').append($debugInfo);
+    
+    function updateDebugInfo(message) {
+        $debugInfo.html(message).show();
+        clearTimeout($debugInfo.data('timer'));
+        $debugInfo.data('timer', setTimeout(function() {
+            $debugInfo.fadeOut(300);
+        }, 5000));
+    }
+    
     $('.draggable-device').on('mousedown', function(e) {
         e.preventDefault();
         
@@ -396,7 +408,16 @@ $(document).ready(function() {
         draggedDeviceType = $(this).data('device-type');
         draggedDeviceName = $(this).data('device-name');
         
-        console.log('Drag started:', draggedDeviceId, draggedDeviceName, draggedDeviceType);
+        console.log('=== DRAG START ===');
+        console.log('Device ID:', draggedDeviceId);
+        console.log('Device Name:', draggedDeviceName);
+        console.log('Device Type:', draggedDeviceType);
+        
+        updateDebugInfo(
+            '🔵 Перетаскивание начато<br>' +
+            'Устройство: <strong>' + draggedDeviceName + '</strong> (id=' + draggedDeviceId + ')<br>' +
+            'Тип: ' + draggedDeviceType
+        );
         
         $(this).addClass('dragging-device');
         
@@ -415,24 +436,71 @@ $(document).ready(function() {
         clone.addClass('drag-clone');
         $('body').append(clone);
         
+        var lastPercentX = 0;
+        var lastPercentY = 0;
+        
         $(document).on('mousemove.drag', function(e) {
             clone.css({
                 'left': (e.pageX - 20) + 'px',
                 'top': (e.pageY - 20) + 'px'
             });
             
-            var $canvas = $('#floorplanCanvas');
-            var canvasOffset = $canvas.offset();
+            var $img = $('#floorplanImage');
+            var imgRect = $img[0].getBoundingClientRect();
             
-            if (canvasOffset) {
-                var isOverCanvas = e.pageX >= canvasOffset.left && 
-                                   e.pageX <= canvasOffset.left + $canvas.width() &&
-                                   e.pageY >= canvasOffset.top && 
-                                   e.pageY <= canvasOffset.top + $canvas.height();
+            if (imgRect) {
+                var mouseX = e.clientX - imgRect.left;
+                var mouseY = e.clientY - imgRect.top;
                 
-                if (isOverCanvas) {
-                    clone.css('border', '2px solid #5cb85c');
-                    $('#floorplanCanvas').css('border', '2px dashed #5cb85c');
+                var isOverImage = mouseX >= 0 && mouseX <= imgRect.width &&
+                                  mouseY >= 0 && mouseY <= imgRect.height;
+                
+                if (isOverImage) {
+                    var naturalWidth = $img[0].naturalWidth;
+                    var naturalHeight = $img[0].naturalHeight;
+                    
+                    var displayWidth = imgRect.width;
+                    var displayHeight = imgRect.height;
+                    
+                    var scale = Math.min(displayWidth / naturalWidth, displayHeight / naturalHeight);
+                    
+                    var realDisplayWidth = naturalWidth * scale;
+                    var realDisplayHeight = naturalHeight * scale;
+                    
+                    var offsetX = (displayWidth - realDisplayWidth) / 2;
+                    var offsetY = (displayHeight - realDisplayHeight) / 2;
+                    
+                    var imgMouseX = mouseX - offsetX;
+                    var imgMouseY = mouseY - offsetY;
+                    
+                    if (imgMouseX >= 0 && imgMouseX <= realDisplayWidth &&
+                        imgMouseY >= 0 && imgMouseY <= realDisplayHeight) {
+                        
+                        var percentX = (imgMouseX / realDisplayWidth) * 100;
+                        var percentY = (imgMouseY / realDisplayHeight) * 100;
+                        
+                        percentX = Math.max(0, Math.min(100, percentX));
+                        percentY = Math.max(0, Math.min(100, percentY));
+                        
+                        if (Math.abs(percentX - lastPercentX) > 0.3 || Math.abs(percentY - lastPercentY) > 0.3) {
+                            lastPercentX = percentX;
+                            lastPercentY = percentY;
+                            
+                            updateDebugInfo(
+                                '🟢 Над планом<br>' +
+                                'Устройство: <strong>' + draggedDeviceName + '</strong> (id=' + draggedDeviceId + ')<br>' +
+                                '📐 Позиция: <strong style="color: #ff9800;">X: ' + percentX.toFixed(1) + '%</strong> | <strong style="color: #ff9800;">Y: ' + percentY.toFixed(1) + '%</strong><br>' +
+                                '📏 Размеры: отобр. ' + Math.round(displayWidth) + 'x' + Math.round(displayHeight) + 
+                                ' | натур. ' + naturalWidth + 'x' + naturalHeight
+                            );
+                        }
+                        
+                        clone.css('border', '2px solid #5cb85c');
+                        $('#floorplanCanvas').css('border', '2px dashed #5cb85c');
+                    } else {
+                        clone.css('border', '1px dashed #ff9800');
+                        $('#floorplanCanvas').css('border', '1px dashed #ff9800');
+                    }
                 } else {
                     clone.css('border', 'none');
                     $('#floorplanCanvas').css('border', 'none');
@@ -445,47 +513,95 @@ $(document).ready(function() {
             $(document).off('.drag');
             $('#floorplanCanvas').css('border', 'none');
             
-            var $canvas = $('#floorplanCanvas');
-            var canvasOffset = $canvas.offset();
+            var $img = $('#floorplanImage');
+            var imgRect = $img[0].getBoundingClientRect();
             
-            if (canvasOffset) {
-                var isOverCanvas = e.pageX >= canvasOffset.left && 
-                                   e.pageX <= canvasOffset.left + $canvas.width() &&
-                                   e.pageY >= canvasOffset.top && 
-                                   e.pageY <= canvasOffset.top + $canvas.height();
+            if (imgRect) {
+                var mouseX = e.clientX - imgRect.left;
+                var mouseY = e.clientY - imgRect.top;
                 
-                if (isOverCanvas) {
-                    var x = ((e.pageX - canvasOffset.left) / $canvas.width()) * 100;
-                    var y = ((e.pageY - canvasOffset.top) / $canvas.height()) * 100;
+                var isOverImage = mouseX >= 0 && mouseX <= imgRect.width &&
+                                  mouseY >= 0 && mouseY <= imgRect.height;
+                
+                if (isOverImage) {
+                    var naturalWidth = $img[0].naturalWidth;
+                    var naturalHeight = $img[0].naturalHeight;
                     
-                    x = Math.max(0, Math.min(100, x));
-                    y = Math.max(0, Math.min(100, y));
+                    var displayWidth = imgRect.width;
+                    var displayHeight = imgRect.height;
                     
-                    clickX = x;
-                    clickY = y;
+                    var scale = Math.min(displayWidth / naturalWidth, displayHeight / naturalHeight);
                     
-                    // Заполняем поля диалога
-                    $('#clickX').val(Math.round(x) + '%');
-                    $('#clickY').val(Math.round(y) + '%');
+                    var realDisplayWidth = naturalWidth * scale;
+                    var realDisplayHeight = naturalHeight * scale;
                     
-                    // Устанавливаем информацию об устройстве
-                    var deviceDisplayName = draggedDeviceName + ' (id=' + draggedDeviceId + ')';
-                    $('#clickDeviceId').val(draggedDeviceId);
-                    $('#clickDeviceName').val(deviceDisplayName);
-                    $('#clickPointType').val(draggedDeviceType === 'reader' ? 'reader' : 'controller');
+                    var offsetX = (displayWidth - realDisplayWidth) / 2;
+                    var offsetY = (displayHeight - realDisplayHeight) / 2;
                     
-                    // Автоматически заполняем метку названием устройства
-                    $('#clickLabel').val(draggedDeviceName || '');
+                    var imgMouseX = mouseX - offsetX;
+                    var imgMouseY = mouseY - offsetY;
                     
-                    console.log('Device set:', draggedDeviceId, draggedDeviceName);
-                    
-                    // Если панель видна, сворачиваем её
-                    if (panelVisible) {
-                        toggleDevicePanel();
+                    if (imgMouseX >= 0 && imgMouseX <= realDisplayWidth &&
+                        imgMouseY >= 0 && imgMouseY <= realDisplayHeight) {
+                        
+                        var x = (imgMouseX / realDisplayWidth) * 100;
+                        var y = (imgMouseY / realDisplayHeight) * 100;
+                        
+                        x = Math.max(0, Math.min(100, x));
+                        y = Math.max(0, Math.min(100, y));
+                        
+                        var xRounded = Math.round(x * 10) / 10;
+                        var yRounded = Math.round(y * 10) / 10;
+                        
+                        console.log('=== DROP POSITION ===');
+                        console.log('X: ' + xRounded + '%');
+                        console.log('Y: ' + yRounded + '%');
+                        
+                        clickX = x;
+                        clickY = y;
+                        
+                        $('#clickX').val(xRounded + '%');
+                        $('#clickY').val(yRounded + '%');
+                        
+                        var deviceDisplayName = draggedDeviceName + ' (id=' + draggedDeviceId + ')';
+                        $('#clickDeviceId').val(draggedDeviceId);
+                        $('#clickDeviceName').val(deviceDisplayName);
+                        $('#clickPointType').val(draggedDeviceType === 'reader' ? 'reader' : 'controller');
+                        $('#clickLabel').val(draggedDeviceName || '');
+                        
+                        console.log('Coordinates set: X=' + xRounded + '%, Y=' + yRounded + '%');
+                        
+                        updateDebugInfo(
+                            '✅ Точка готова к добавлению!<br>' +
+                            'Устройство: <strong style="color: #5cb85c;">' + draggedDeviceName + '</strong> (id=' + draggedDeviceId + ')<br>' +
+                            '📐 Позиция: <strong style="color: #ff9800;">X: ' + xRounded + '%</strong> | <strong style="color: #ff9800;">Y: ' + yRounded + '%</strong><br>' +
+                            '📝 Метка: ' + (draggedDeviceName || '—')
+                        );
+                        
+                        if (panelVisible) {
+                            toggleDevicePanel();
+                        }
+                        
+                        $('#clickAddPointDialog').dialog('open');
+                    } else {
+                        console.log('=== CLICKED ON PADDING AREA ===');
+                        updateDebugInfo(
+                            '⚠️ Попадание в пустую область<br>' +
+                            'Пожалуйста, перетащите устройство на изображение'
+                        );
+                        setTimeout(function() {
+                            $debugInfo.fadeOut(300);
+                        }, 2000);
                     }
-                    
-                    // Открываем диалог
-                    $('#clickAddPointDialog').dialog('open');
+                } else {
+                    console.log('=== DROP CANCELLED ===');
+                    updateDebugInfo(
+                        '❌ Отпущено за пределами плана<br>' +
+                        'Добавление отменено'
+                    );
+                    setTimeout(function() {
+                        $debugInfo.fadeOut(300);
+                    }, 1500);
                 }
             }
             
@@ -516,7 +632,6 @@ function showPointInfo($point) {
     var deviceId = $point.data('device-id');
     var label = $point.find('.point-label').text() || 'Без метки';
     
-    // Получаем координаты из атрибута style
     var style = $point.attr('style');
     var leftMatch = style.match(/left:\s*([\d.,]+)%/);
     var topMatch = style.match(/top:\s*([\d.,]+)%/);
@@ -525,14 +640,12 @@ function showPointInfo($point) {
     var yPos = 0;
     
     if (leftMatch) {
-        // Заменяем запятую на точку и парсим
         xPos = parseFloat(leftMatch[1].replace(',', '.'));
     }
     if (topMatch) {
         yPos = parseFloat(topMatch[1].replace(',', '.'));
     }
     
-    // Если не найдено в style, пробуем через css()
     if (xPos === 0 && yPos === 0) {
         var leftVal = $point.css('left');
         var topVal = $point.css('top');
@@ -540,7 +653,6 @@ function showPointInfo($point) {
         yPos = parseFloat(topVal.replace('%', '').replace(',', '.'));
     }
     
-    // Если координаты все еще невалидны или больше 100%, пытаемся получить из data-атрибутов
     if (isNaN(xPos) || xPos === 0 || xPos > 100) {
         var dataX = $point.data('x-pos');
         if (dataX !== undefined) {
@@ -554,7 +666,6 @@ function showPointInfo($point) {
         }
     }
     
-    // Если все еще > 100%, значит это px, конвертируем в %
     if (xPos > 100) {
         var parentWidth = $('#floorplanCanvas').width();
         if (parentWidth > 0) {
@@ -568,7 +679,6 @@ function showPointInfo($point) {
         }
     }
     
-    // Ограничиваем значения 0-100% и округляем до 1 знака
     xPos = Math.max(0, Math.min(100, Math.round(xPos * 10) / 10));
     yPos = Math.max(0, Math.min(100, Math.round(yPos * 10) / 10));
     
@@ -584,7 +694,6 @@ function showPointInfo($point) {
     var tooltipLeft = offset.left + 30;
     var tooltipTop = offset.top - 10;
     
-    // Не даем подсказке выйти за пределы окна
     var tooltipWidth = $tooltip.outerWidth();
     var tooltipHeight = $tooltip.outerHeight();
     var windowWidth = $(window).width();
@@ -719,80 +828,6 @@ function saveClickPoint() {
     });
 }
 
-function _saveClickPoint() {
-    var deviceId = $('#clickDeviceId').val();
-	//var draggedData = window.draggedDeviceData || null;
-    var pointType = window.draggedDeviceData || null;
-    var label = $('#clickLabel').val();
-    var floorplanId = <?php echo $current_floor_id; ?>;
-    
-    if (!deviceId) {
-        showNotification('Пожалуйста, выберите устройство', 'warning');
-        $('#clickDeviceId').focus();
-        return;
-    }
-    
-    if (clickX === 0 && clickY === 0) {
-        showNotification('Ошибка: координаты не заданы', 'error');
-        return;
-    }
-    
-    var dialog = $('#clickAddPointDialog');
-    var buttons = dialog.dialog('option', 'buttons');
-    
-    if (buttons && buttons[1]) {
-        buttons[1].text = '<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Добавление...';
-        buttons[1].disabled = true;
-        dialog.dialog('option', 'buttons', buttons);
-    }
-    
-    $.ajax({
-        url: '<?php echo URL::site("floorplan/addPointAjax"); ?>',
-        type: 'POST',
-        data: {
-            floorplan_id: floorplanId,
-            x: clickX,
-            y: clickY,
-            device_id: deviceId,
-            point_type: pointType,
-            label: label || ''
-        },
-        dataType: 'json',
-        success: function(response) {
-            if (response.success) {
-                dialog.dialog('close');
-                showNotification('Точка успешно добавлена!', 'success');
-                
-                var countText = $('#pointCountLabel').text();
-                var count = parseInt(countText.replace('Точек: ', ''));
-                if (!isNaN(count)) {
-                    $('#pointCountLabel').text('Точек: ' + (count + 1));
-                }
-                
-                setTimeout(function() {
-                    location.reload();
-                }, 500);
-            } else {
-                showNotification('Ошибка при добавлении точки: ' + (response.error || 'Неизвестная ошибка'), 'error');
-                if (buttons && buttons[1]) {
-                    buttons[1].text = 'Добавить точку';
-                    buttons[1].disabled = false;
-                    dialog.dialog('option', 'buttons', buttons);
-                }
-            }
-        },
-        error: function(xhr, status, error) {
-            showNotification('Ошибка при отправке запроса: ' + error, 'error');
-            
-            if (buttons && buttons[1]) {
-                buttons[1].text = 'Добавить точку';
-                buttons[1].disabled = false;
-                dialog.dialog('option', 'buttons', buttons);
-            }
-        }
-    });
-}
-
 function showNotification(message, type) {
     var $notification = $('#notification');
     if (!$notification.length) {
@@ -817,7 +852,7 @@ function showNotification(message, type) {
 }
 
 // ==========================================
-// УДАЛЕНИЕ ТОЧЕК - ЕДИНАЯ ФУНКЦИЯ
+// УДАЛЕНИЕ ТОЧЕК
 // ==========================================
 
 function deletePoint(pointId, btn) {
@@ -865,7 +900,7 @@ function deletePoint(pointId, btn) {
             }
         },
         error: function() {
-            showNotification('Ошибка: ' + error, 'error');
+            showNotification('Ошибка соединения', 'error');
             $btn.html(originalHtml).prop('disabled', false);
         }
     });
@@ -887,7 +922,7 @@ function updatePointCounter() {
 }
 
 // ==========================================
-// НАСТРОЙКА ВСЕХ КНОПОК УДАЛЕНИЯ
+// НАСТРОЙКА КНОПОК УДАЛЕНИЯ
 // ==========================================
 
 $(document).ready(function() {
@@ -933,39 +968,7 @@ function printFloorplan() {
 }
 
 // ==========================================
-// СТИЛИ ДЛЯ DRAG & DROP
-// ==========================================
-
-$('<style>')
-    .text(
-        '.dragging-device {\n' +
-        '    opacity: 0.5 !important;\n' +
-        '    transform: scale(0.95);\n' +
-        '}\n' +
-        '.drag-clone {\n' +
-        '    font-size: 12px;\n' +
-        '    font-family: inherit;\n' +
-        '}\n' +
-        '.drag-clone .glyphicon {\n' +
-        '    margin-right: 5px;\n' +
-        '}\n' +
-        '#floorplanCanvas.drag-over {\n' +
-        '    border: 2px dashed #5cb85c !important;\n' +
-        '    background: rgba(92, 184, 92, 0.05) !important;\n' +
-        '}\n' +
-        '.draggable-device {\n' +
-        '    transition: transform 0.2s ease, opacity 0.2s ease;\n' +
-        '}\n' +
-        '.draggable-device:active {\n' +
-        '    cursor: grabbing !important;\n' +
-        '}'
-    )
-    .appendTo('head');
-	
-	
-	
-// ==========================================
-// ПЕРЕТАСКИВАНИЕ ПАНЕЛИ УСТРОЙСТВ С СОХРАНЕНИЕМ ПОЗИЦИИ
+// ПЕРЕТАСКИВАНИЕ ПАНЕЛИ УСТРОЙСТВ
 // ==========================================
 
 $(document).ready(function() {
@@ -976,16 +979,13 @@ $(document).ready(function() {
     var dragOffsetX = 0;
     var dragOffsetY = 0;
     
-    // Восстанавливаем сохраненную позицию
     restorePanelPosition();
     
-    // Функция восстановления позиции
     function restorePanelPosition() {
         try {
             var savedPosition = localStorage.getItem('floorplan_device_panel_position');
             if (savedPosition) {
                 var position = JSON.parse(savedPosition);
-                // Проверяем, что позиция в пределах окна
                 var maxTop = $(window).height() - 100;
                 var maxLeft = $(window).width() - 100;
                 
@@ -1000,7 +1000,6 @@ $(document).ready(function() {
                     'bottom': 'auto'
                 });
             } else {
-                // Позиция по умолчанию - справа сверху
                 $panelWrapper.css({
                     'top': '80px',
                     'left': 'auto',
@@ -1008,12 +1007,9 @@ $(document).ready(function() {
                     'transform': 'none'
                 });
             }
-        } catch(e) {
-            // Игнорируем ошибки
-        }
+        } catch(e) {}
     }
     
-    // Функция сохранения позиции
     function savePanelPosition() {
         var offset = $panelWrapper.offset();
         var position = {
@@ -1022,14 +1018,11 @@ $(document).ready(function() {
         };
         try {
             localStorage.setItem('floorplan_device_panel_position', JSON.stringify(position));
-        } catch(e) {
-            // Игнорируем ошибки localStorage
-        }
+        } catch(e) {}
     }
     
-    // Начинаем перетаскивание
     $dragHandle.on('mousedown', function(e) {
-        if (e.button !== 0) return; // Только левая кнопка
+        if (e.button !== 0) return;
         
         var offset = $panelWrapper.offset();
         dragOffsetX = e.pageX - offset.left;
@@ -1046,14 +1039,12 @@ $(document).ready(function() {
         return false;
     });
     
-    // Перемещение
     $(document).on('mousemove', function(e) {
         if (!isDragging) return;
         
         var newLeft = e.pageX - dragOffsetX;
         var newTop = e.pageY - dragOffsetY;
         
-        // Ограничиваем перемещение в пределах окна
         var maxLeft = $(window).width() - $panelWrapper.outerWidth();
         var maxTop = $(window).height() - 50;
         
@@ -1071,7 +1062,6 @@ $(document).ready(function() {
         e.preventDefault();
     });
     
-    // Завершение перетаскивания
     $(document).on('mouseup', function(e) {
         if (isDragging) {
             isDragging = false;
@@ -1084,7 +1074,6 @@ $(document).ready(function() {
         }
     });
     
-    // При изменении размера окна корректируем позицию
     $(window).on('resize', function() {
         var offset = $panelWrapper.offset();
         var maxLeft = $(window).width() - $panelWrapper.outerWidth();
@@ -1099,30 +1088,8 @@ $(document).ready(function() {
             savePanelPosition();
         }
     });
-    
-    // Кнопка сворачивания/разворачивания
-    window.toggleDevicePanel = function() {
-        var $panel = $('#devicePanel');
-        var $anchorIcon = $('#anchorIcon');
-        var isVisible = $panel.css('opacity') !== '0' && $panel.css('transform') !== 'translateX(100%)';
-        
-        if (isVisible) {
-            $panel.css({
-                'transform': 'translateX(100%)',
-                'opacity': '0'
-            });
-            $anchorIcon.removeClass('glyphicon-chevron-right').addClass('glyphicon-chevron-left');
-            $('#panelAnchor').css('border-radius', '0 4px 4px 0');
-        } else {
-            $panel.css({
-                'transform': 'translateX(0)',
-                'opacity': '1'
-            });
-            $anchorIcon.removeClass('glyphicon-chevron-left').addClass('glyphicon-chevron-right');
-            $('#panelAnchor').css('border-radius', '4px 0 0 4px');
-        }
-    };
 });
+
 // ==========================================
 // ФИЛЬТРАЦИЯ УСТРОЙСТВ НА ПАНЕЛИ
 // ==========================================
@@ -1134,7 +1101,6 @@ $(document).ready(function() {
     var currentTypeFilter = 'all';
     var searchQuery = '';
     
-    // Функция фильтрации
     function filterDevices() {
         var query = searchQuery.toLowerCase().trim();
         var type = currentTypeFilter;
@@ -1143,7 +1109,6 @@ $(document).ready(function() {
         var readersVisible = 0;
         var controllersVisible = 0;
         
-        // Фильтруем считыватели
         $readers.each(function() {
             var $item = $(this);
             var searchData = $item.data('device-search') || '';
@@ -1158,7 +1123,6 @@ $(document).ready(function() {
             }
         });
         
-        // Фильтруем контроллеры
         $controllers.each(function() {
             var $item = $(this);
             var searchData = $item.data('device-search') || '';
@@ -1173,13 +1137,11 @@ $(document).ready(function() {
             }
         });
         
-        // Показываем/скрываем сообщения "ничего не найдено"
         var $readersEmpty = $('#readersEmptyFilter');
         var $controllersEmpty = $('#controllersEmptyFilter');
         var $noReadersMsg = $('#noReadersMsg');
         var $noControllersMsg = $('#noControllersMsg');
         
-        // Проверяем наличие элементов в списках
         var hasReaders = $readers.length > 0;
         var hasControllers = $controllers.length > 0;
         
@@ -1207,7 +1169,6 @@ $(document).ready(function() {
             $controllersEmpty.hide();
         }
         
-        // Обновляем счетчики в заголовке
         var totalVisible = readersVisible + controllersVisible;
         $('#totalDevicesCount').text(totalVisible);
         $('#filterAllCount').text(totalVisible);
@@ -1216,7 +1177,6 @@ $(document).ready(function() {
         $('#readerTabCount').text(readersVisible);
         $('#controllerTabCount').text(controllersVisible);
         
-        // Показываем/скрываем кнопку сброса
         if (query !== '' || type !== 'all') {
             $clearBtn.show();
         } else {
@@ -1224,7 +1184,6 @@ $(document).ready(function() {
         }
     }
     
-    // Обработчик ввода текста (с debounce)
     var filterTimeout;
     $filterInput.on('input', function() {
         clearTimeout(filterTimeout);
@@ -1232,11 +1191,9 @@ $(document).ready(function() {
         filterTimeout = setTimeout(filterDevices, 200);
     });
     
-    // Обработчик кнопок быстрого фильтра по типу
     $filterTypeBtns.on('click', function() {
         var type = $(this).data('filter');
         
-        // Обновляем активную кнопку
         $filterTypeBtns.removeClass('active').css({
             'background': '#fff',
             'color': '#333'
@@ -1250,13 +1207,11 @@ $(document).ready(function() {
         filterDevices();
     });
     
-    // Обработчик кнопки сброса фильтра
     $clearBtn.on('click', function() {
         $filterInput.val('');
         searchQuery = '';
         currentTypeFilter = 'all';
         
-        // Сбрасываем активную кнопку
         $filterTypeBtns.removeClass('active').css({
             'background': '#fff',
             'color': '#333'
@@ -1270,23 +1225,18 @@ $(document).ready(function() {
         $filterInput.focus();
     });
     
-    // Обработчик клавиши Escape для сброса фильтра
     $filterInput.on('keydown', function(e) {
         if (e.key === 'Escape') {
             $clearBtn.click();
         }
     });
     
-    // Сохраняем состояние фильтра при переключении вкладок
     $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
-        // Обновляем фильтр при переключении вкладки
         filterDevices();
     });
     
-    // Инициализация фильтрации при загрузке страницы
     setTimeout(filterDevices, 300);
     
-    // Обновляем фильтр при изменении размера панели
     var resizeTimeout;
     $(window).on('resize', function() {
         clearTimeout(resizeTimeout);
@@ -1295,7 +1245,7 @@ $(document).ready(function() {
 });
 
 // ==========================================
-// ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ ФИЛЬТРА
+// СТИЛИ ДЛЯ ФИЛЬТРА
 // ==========================================
 
 $('<style>')
@@ -1322,9 +1272,6 @@ $('<style>')
         '#clearDeviceFilter:hover {\n' +
         '    opacity: 0.8;\n' +
         '    transform: scale(1.05);\n' +
-        '}\n' +
-        '.device-item.hidden-by-filter {\n' +
-        '    display: none !important;\n' +
         '}\n' +
         '#readersEmptyFilter, #controllersEmptyFilter {\n' +
         '    padding: 20px 10px;\n' +

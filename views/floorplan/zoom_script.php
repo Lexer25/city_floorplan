@@ -140,30 +140,24 @@ var FloorplanZoom = {
     bindEvents: function() {
         var self = this;
         
-        // Колесико мыши (Ctrl+Scroll) — ТОЛЬКО НАД КАРТИНКОЙ
-        $('#floorplanScrollable').on('wheel', function(e) {
-            if (e.ctrlKey || e.altKey) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                var delta = e.originalEvent.deltaY;
-                if (delta < 0) {
-                    self.zoomIn();
-                } else if (delta > 0) {
-                    self.zoomOut();
+        // Колесико мыши (Ctrl+Scroll) — используем addEventListener напрямую
+        var scrollable = document.getElementById('floorplanScrollable');
+        if (scrollable) {
+            scrollable.addEventListener('wheel', function(e) {
+                if (e.ctrlKey || e.altKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    var delta = e.deltaY;
+                    if (delta < 0) {
+                        self.zoomIn();
+                    } else if (delta > 0) {
+                        self.zoomOut();
+                    }
+                    return false;
                 }
-                return false;
-            }
-        }, { passive: false });
-        
-        // Блокируем масштабирование браузера
-        $(document).on('wheel', function(e) {
-            if ((e.ctrlKey || e.altKey) && $(e.target).closest('#floorplanScrollable').length) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
-        }, { passive: false });
+            }, { passive: false });
+        }
         
         // Клавиатура
         $(document).on('keydown', function(e) {
@@ -188,7 +182,9 @@ var FloorplanZoom = {
         var resizeTimer;
         $(window).on('resize', function() {
             clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(function() { self.fitToScreen(); }, 500);
+            resizeTimer = setTimeout(function() { 
+                self.fitToScreen(); 
+            }, 500);
         });
     }
 };
